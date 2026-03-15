@@ -60,12 +60,16 @@ export default function Incidencias() {
         .from('incidencias')
         .select(`
           *,
-          reporter:perfiles!reporter_id(nombre, rol),
-          assignee:perfiles!assigned_to(nombre)
+          reporter:perfiles!reporter_id(nombre, rol)
         `)
         .order('created_at', { ascending: false })
       
-      if (error) throw error
+      if (error) {
+        console.warn('Error fetching detailed incidents, falling back:', error)
+        const { data: basicData, error: basicError } = await supabase.from('incidencias').select('*').order('created_at', { ascending: false })
+        if (basicError) throw basicError
+        return setIncidents(basicData || [])
+      }
       
       const formattedData = data.map(inc => ({
         id: inc.id,
@@ -78,7 +82,7 @@ export default function Incidencias() {
         time: new Date(inc.created_at).toLocaleDateString(),
         reporter: `${inc.reporter?.nombre || 'Desconocido'} (${inc.reporter?.rol || ''})`,
         assignee_id: inc.assigned_to,
-        assignee_name: inc.assignee?.nombre || 'Sin asignar'
+        assignee_name: staff.find(s => s.id === inc.assigned_to)?.nombre || 'Sin asignar'
       }))
       
       setIncidents(formattedData)

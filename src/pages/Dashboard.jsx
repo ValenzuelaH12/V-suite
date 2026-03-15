@@ -85,14 +85,26 @@ export default function Dashboard() {
         .limit(5)
       setMyTasks(myIncs || [])
 
-      // 6. Tendencias de lecturas (últimas 7 del contador principal de luz)
-      const { data: readings } = await supabase
-        .from('lecturas')
-        .select('valor, fecha, consumo')
-        .eq('tipo', 'luz')
-        .order('fecha', { ascending: false })
-        .limit(7)
-      setReadingTrends((readings || []).reverse())
+      // 6. Tendencias de lecturas (desde contadores tipo luz)
+      const { data: luzContadores } = await supabase.from('contadores').select('id').eq('tipo', 'luz').limit(1)
+      if (luzContadores && luzContadores[0]) {
+        const { data: readings } = await supabase
+          .from('lecturas')
+          .select('valor, fecha, contador_id')
+          .eq('contador_id', luzContadores[0].id)
+          .order('fecha', { ascending: false })
+          .limit(7)
+        
+        // Calcular consumo localmente como en Lecturas.jsx
+        if (readings) {
+          const processed = readings.map((curr, idx) => {
+            const previous = readings[idx + 1]
+            const consumo = previous ? curr.valor - previous.valor : 0
+            return { ...curr, consumo }
+          })
+          setReadingTrends(processed.reverse())
+        }
+      }
 
     } catch (error) {
       console.error('Error fetching dashboard stats:', error)
