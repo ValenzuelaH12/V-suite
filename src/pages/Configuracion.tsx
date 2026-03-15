@@ -536,7 +536,12 @@ export default function Configuracion() {
                   <tbody>
                     {zonas.map(z => (
                       <tr key={z.id}>
-                        <td><div className="flex flex-column"><strong>{z.nombre}</strong><span className="text-xs text-muted">{new Date(z.created_at).toLocaleDateString()}</span></div></td>
+                        <td>
+                          <div className="flex flex-col gap-xs py-xs">
+                            <span className="text-primary font-bold">{z.nombre}</span>
+                            <span className="text-[10px] text-muted uppercase tracking-wider">Creado: {new Date(z.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </td>
                         <td>
                           <div className="flex flex-wrap gap-xs">
                             {habitaciones.filter(h => h.zona_id === z.id).map(h => (
