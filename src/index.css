@@ -549,11 +549,11 @@ input, textarea, select {
   height: 100%;
   background: rgba(0, 0, 0, 0.85); /* Más oscuro para mejor contraste */
   display: flex;
-  align-items: flex-start; /* Cambiado a flex-start para controlar la altura exacta */
+  align-items: flex-start; /* Mantener la bajada exacta */
   justify-content: center;
   z-index: 99999;
-  padding: 18vh 20px 20px 20px; /* Forzado a bajar un 18% de la pantalla */
-  overflow-y: auto; /* Permite scroll si el modal es muy alto */
+  padding: 18vh 20px 20px 20px; /* Posición 18% desde el borde superior */
+  overflow: hidden; /* ELIMINADO EL SCROLLING */
 }
 
 .modal-content {
@@ -561,12 +561,17 @@ input, textarea, select {
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 16px;
   width: 100%;
-  max-width: 540px;
-  max-height: 90vh;
+  max-width: 520px;
   display: flex;
   flex-direction: column;
   position: relative;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+  animation: modalEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalEnter {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .modal-header {
@@ -584,8 +589,7 @@ input, textarea, select {
 }
 
 .modal-body {
-  padding: 24px;
-  overflow-y: auto; /* Permite scroll interno si es necesario */
+  padding: 20px 24px;
 }
 
 .modal-footer {
