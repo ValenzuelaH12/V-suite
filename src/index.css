@@ -547,30 +547,30 @@ input, textarea, select {
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
   display: flex;
-  align-items: center; /* Centrado vertical para que no flote arriba */
+  align-items: center; /* Centrado vertical exacto */
   justify-content: center;
   z-index: 10000;
   animation: fadeIn 0.2s ease;
-  padding: var(--spacing-md);
+  padding: 20px;
 }
 
 .modal-content {
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2xl);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   width: 100%;
-  max-width: 500px; /* Un poco más estrecho para ganar altura visual */
-  max-height: 95vh;
+  max-width: 520px;
+  max-height: 90vh; /* Bajado un poco el límite para mayor margen */
   display: flex;
   flex-direction: column;
-  animation: modalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: modalEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
 
-@keyframes modalSlideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+@keyframes modalEnter {
+  from { transform: scale(0.95) translateY(10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
 }
 
 .modal-header {
