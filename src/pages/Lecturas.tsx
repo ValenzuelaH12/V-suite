@@ -78,21 +78,79 @@ export default function Lecturas() {
     if (!selectedContador) return
 
     try {
-      const { error } = await supabase
+      const valorNumerico = parseFloat(newReading.valor)
+      
+      // 1. Buscar la lectura anterior para este contador
+      const { data: lastReadings, error: fetchError } = await supabase
+        .from('lecturas')
+        .select('valor')
+        .eq('contador_id', newReading.contador_id)
+        .order('fecha', { ascending: false })
+        .limit(1)
+
+      if (fetchError) throw fetchError
+
+      let isAnomaly = false
+      let alertMsg = ''
+      
+      if (lastReadings && lastReadings.length > 0) {
+        const lastValue = lastReadings[0].valor
+        const currentConsumo = valorNumerico - lastValue
+        
+        // Calcular consumo promedio (simplificado: comparamos con el último consumo conocido)
+        // Buscamos el penúltimo para ver el consumo anterior
+        const { data: prevReadings } = await supabase
+          .from('lecturas')
+          .select('valor')
+          .eq('contador_id', newReading.contador_id)
+          .order('fecha', { ascending: false })
+          .range(1, 1)
+
+        if (prevReadings && prevReadings.length > 0) {
+          const prevConsumo = lastValue - prevReadings[0].valor
+          // Si el consumo actual es un 30% superior al anterior
+          if (prevConsumo > 0 && currentConsumo > prevConsumo * 1.3) {
+            isAnomaly = true
+            alertMsg = `Consumo inusual detectado: +${Math.round(((currentConsumo/prevConsumo)-1)*100)}% respecto al periodo anterior.`
+          }
+        } else if (currentConsumo > 0) {
+          // Si no hay historial suficiente, pero el consumo es muy alto (valor arbitrario para primer chequeo)
+          // Podríamos omitir o usar una lógica base. Por ahora, solo si hay historial.
+        }
+      }
+
+      // 2. Insertar la lectura
+      const { error: insertError } = await supabase
         .from('lecturas')
         .insert([{
           ...newReading,
-          tipo: selectedContador.tipo,
-          valor: parseFloat(newReading.valor),
-          creado_por: profile.id
+          valor: valorNumerico,
+          creado_por: profile.id,
+          notas: isAnomaly ? `[AUTO-ALERTA] ${alertMsg}` : ''
         }])
 
-      if (error) {
-        if (error.code === '23505') throw new Error('Ya existe una lectura para este contador en la fecha seleccionada.')
-        throw error
+      if (insertError) {
+        if (insertError.code === '23505') throw new Error('Ya existe una lectura para este contador en la fecha seleccionada.')
+        throw insertError
       }
 
-      setMsg({ type: 'success', text: 'Lectura registrada correctamente.' })
+      // 3. Si hay anomalía, crear incidencia automática
+      if (isAnomaly) {
+        await supabase.from('incidencias').insert([{
+          title: `[ALERTA CONSUMO] ${selectedContador.nombre}`,
+          location: selectedContador.ubicacion || 'General',
+          priority: 'high',
+          status: 'pending',
+          reporter_id: profile.id,
+          descripcion: `Detección automática de consumo excesivo de ${selectedContador.tipo}. ${alertMsg}`
+        }])
+      }
+
+      setMsg({ 
+        type: isAnomaly ? 'warning' : 'success', 
+        text: isAnomaly ? `Lectura guardada. SE HA GENERADO UNA ALERTA: ${alertMsg}` : 'Lectura registrada correctamente.' 
+      })
+      
       setIsAdding(false)
       setNewReading({ ...newReading, valor: '' })
       fetchLecturas()
@@ -240,8 +298,11 @@ export default function Lecturas() {
       </div>
 
       {msg.text && (
-        <div className={`alert alert-${msg.type === 'success' ? 'success' : 'danger'} mb-lg`}>
-          <span>{msg.text}</span>
+        <div className={`alert alert-${msg.type === 'success' ? 'success' : msg.type === 'warning' ? 'warning' : 'danger'} mb-lg animate-slide-in`}>
+          <div className="flex items-center gap-md">
+            {msg.type === 'warning' && <Activity className="text-warning animate-pulse" size={20} />}
+            <span>{msg.text}</span>
+          </div>
         </div>
       )}
 
@@ -376,7 +437,7 @@ export default function Lecturas() {
                     return true
                   })
                   return filtered.length > 0 ? filtered.map(l => (
-                  <tr key={l.id}>
+                  <tr key={l.id} className={l.notas?.includes('[AUTO-ALERTA]') ? 'bg-warning/10 transition-colors' : ''}>
                     <td><strong>{new Date(l.fecha).toLocaleDateString()}</strong></td>
                     <td><span className="font-bold">{l.contadores?.nombre || '---'}</span></td>
                     <td>

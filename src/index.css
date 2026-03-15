@@ -540,6 +540,27 @@ input, textarea, select {
 .toast-danger { border-left: 3px solid var(--color-danger); }
 .toast-info { border-left: 3px solid var(--color-info); }
 
+.alert-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.bg-warning\/10 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 /* Overlay Modal */
 .modal-overlay {
   position: fixed;
