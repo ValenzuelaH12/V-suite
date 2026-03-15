@@ -1,0 +1,795 @@
+import { useState, useEffect } from 'react'
+import { Plus, Filter, Search, MoreVertical, MapPin, Clock, X, CheckCircle, Image as ImageIcon, Video, Paperclip, MessageSquare, History, AlertCircle, RefreshCw } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+
+export default function Incidencias() {
+  const { user, profile } = useAuth()
+  const [activeTab, setActiveTab] = useState('activas')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [newIncident, setNewIncident] = useState({ title: '', location: '', priority: 'medium', descripcion: '', media_urls: [] })
+  const [incidents, setIncidents] = useState([])
+  const [zonas, setZonas] = useState([])
+  const [habitaciones, setHabitaciones] = useState([])
+  const [tipos, setTipos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [selectedIncident, setSelectedIncident] = useState(null)
+  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
+
+  useEffect(() => {
+    fetchIncidents()
+    fetchMetadata()
+
+    // Suscribirse a cambios en tiempo real
+    const channel = supabase
+      .channel('incidencias_realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'incidencias' 
+      }, () => {
+        fetchIncidents()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  const fetchMetadata = async () => {
+    try {
+      const [zRes, tRes, hRes] = await Promise.all([
+        supabase.from('zonas').select('id, nombre'),
+        supabase.from('tipos_problemas').select('nombre'),
+        supabase.from('habitaciones').select('id, nombre, zona_id')
+      ])
+      if (zRes.data) setZonas(zRes.data)
+      if (tRes.data) setTipos(tRes.data)
+      if (hRes.data) setHabitaciones(hRes.data)
+    } catch (error) { console.error(error) }
+  }
+
+  const fetchIncidents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('incidencias')
+        .select(`
+          *,
+          reporter:perfiles!reporter_id(nombre, rol)
+        `)
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      
+      const formattedData = data.map(inc => ({
+        id: inc.id,
+        title: inc.title,
+        location: inc.location,
+        priority: inc.priority,
+        status: inc.status,
+        descripcion: inc.descripcion,
+        media_urls: inc.media_urls || [],
+        time: new Date(inc.created_at).toLocaleDateString(),
+        reporter: `${inc.reporter?.nombre || 'Desconocido'} (${inc.reporter?.rol || ''})`
+      }))
+      
+      setIncidents(formattedData)
+    } catch (error) {
+      console.error('Error fetching incidents:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreateIncident = async (e) => {
+    e.preventDefault()
+    if (!newIncident.title || !newIncident.location || !user) return
+    
+    // Si hay una habitación seleccionada, la añadimos a la ubicación
+    const finalLocation = newIncident.room 
+      ? `${newIncident.location} - Hab. ${newIncident.room}`
+      : newIncident.location
+
+    try {
+      const { error } = await supabase
+        .from('incidencias')
+        .insert([{
+          title: newIncident.title,
+          location: finalLocation,
+          priority: newIncident.priority,
+          status: 'pendiente',
+          descripcion: newIncident.descripcion || '',
+          media_urls: newIncident.media_urls || [],
+          reporter_id: user.id
+        }])
+
+      if (error) throw error
+      
+      fetchIncidents()
+      setIsModalOpen(false)
+      setNewIncident({ title: '', location: '', priority: 'medium', room: '', descripcion: '', media_urls: [] })
+    } catch (error) {
+      console.error('Error creating incident:', error)
+    }
+  }
+
+  const filteredIncidents = incidents.filter(inc => {
+    if (activeTab === 'activas') return inc.status !== 'resuelto'
+    if (activeTab === 'resueltas') return inc.status === 'resuelto'
+    return true
+  })
+
+  const STATUS_DETAILS = {
+    pendiente: { label: 'Pendiente', color: 'danger', icon: AlertCircle },
+    revision: { label: 'Bajo Revisión', color: 'info', icon: Search },
+    proceso: { label: 'En Proceso', color: 'warning', icon: Clock },
+    espera: { label: 'En Espera', color: 'secondary', icon: Clock },
+    resuelto: { label: 'Resuelto', color: 'success', icon: CheckCircle }
+  }
+
+  const handleModalFileUpload = async (e) => {
+    if (!e.target.files || e.target.files.length === 0) return
+    const file = e.target.files[0]
+    setUploading(true)
+
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `new_${Math.random().toString(36).substring(2)}.${fileExt}`
+      const filePath = `incidents/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('incidencias-media')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('incidencias-media')
+        .getPublicUrl(filePath)
+
+      setNewIncident(prev => ({
+        ...prev,
+        media_urls: [...(prev.media_urls || []), publicUrl]
+      }))
+    } catch (error) {
+      console.error('Error uploading modal file:', error)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleUpdateStatus = async (id, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('incidencias')
+        .update({ status: newStatus })
+        .eq('id', id)
+        
+      if (error) throw error
+      fetchIncidents()
+      if (selectedIncident?.id === id) {
+        setSelectedIncident(prev => ({ ...prev, status: newStatus }))
+      }
+    } catch (error) {
+      console.error('Error updating status:', error)
+    }
+  }
+
+  const handleFileUpload = async (e) => {
+    if (!e.target.files || e.target.files.length === 0 || !selectedIncident) return
+    const file = e.target.files[0]
+    setUploading(true)
+
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${selectedIncident.id}_${Math.random().toString(36).substring(2)}.${fileExt}`
+      const filePath = `incidents/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('incidencias-media')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('incidencias-media')
+        .getPublicUrl(filePath)
+
+      const currentUrls = selectedIncident.media_urls || []
+      const newUrls = [...currentUrls, publicUrl]
+
+      const { error: updateError } = await supabase
+        .from('incidencias')
+        .update({ media_urls: newUrls })
+        .eq('id', selectedIncident.id)
+
+      if (updateError) throw updateError
+
+      setSelectedIncident(prev => ({ ...prev, media_urls: newUrls }))
+      fetchIncidents()
+    } catch (error) {
+      console.error('Error uploading file:', error)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="incidencias-page animate-fade-in">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Gestión de Incidencias</h1>
+          <p className="page-subtitle">Control y seguimiento de reportes del hotel</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+          <Plus size={18} />
+          <span>Nueva Incidencia</span>
+        </button>
+      </div>
+
+      <div className="incidencias-toolbar glass-card">
+        <div className="tabs">
+          <button 
+            className={`tab ${activeTab === 'activas' ? 'active' : ''}`}
+            onClick={() => setActiveTab('activas')}
+          >
+            Activas 
+            <span className="badge badge-accent ml-sm">3</span>
+          </button>
+          <button 
+            className={`tab ${activeTab === 'resueltas' ? 'active' : ''}`}
+            onClick={() => setActiveTab('resueltas')}
+          >
+            Resueltas
+          </button>
+          <button 
+            className={`tab ${activeTab === 'todas' ? 'active' : ''}`}
+            onClick={() => setActiveTab('todas')}
+          >
+            Todas
+          </button>
+        </div>
+
+        <div className="toolbar-actions">
+          <div className="search-bar variant-small">
+            <Search size={16} className="search-icon" />
+            <input type="text" placeholder="Buscar por ID, título, habitación..." className="search-input" />
+          </div>
+          
+          <button className="btn btn-secondary btn-icon">
+            <Filter size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div className="incidencias-grid mt-lg">
+        {filteredIncidents.map(inc => (
+          <div key={inc.id} className="incident-card glass-card">
+            <div className="card-top">
+              <div className="badges">
+                <span className={`badge priority-${inc.priority}`}>
+                  {inc.priority === 'high' ? 'Alta' : inc.priority === 'medium' ? 'Media' : 'Baja'}
+                </span>
+                <span className="incident-id text-muted">#{inc.id}</span>
+              </div>
+              <button className="btn-ghost btn-icon btn-sm">
+                <MoreVertical size={16} />
+              </button>
+            </div>
+            
+            <div 
+              className="incident-content p-lg cursor-pointer group"
+              onClick={() => {
+                setSelectedIncident(inc)
+                setIsDetailPanelOpen(true)
+              }}
+            >
+              <div className="flex justify-between items-start mb-sm">
+                <h3 className="incident-title px-0 py-none m-none">{inc.title}</h3>
+                <span className={`badge priority-${inc.priority} text-[10px] py-none h-fit uppercase`}>
+                  {inc.priority === 'high' ? 'Alta' : inc.priority === 'medium' ? 'Media' : 'Baja'}
+                </span>
+              </div>
+              
+              <div className="incident-details px-0">
+                <div className="detail-item">
+                  <MapPin size={14} className="text-muted" />
+                  <span>{inc.location}</span>
+                </div>
+                <div className="detail-item">
+                  <Clock size={14} className="text-muted" />
+                  <span>{inc.time}</span>
+                </div>
+              </div>
+
+              {inc.media_urls?.length > 0 && (
+                <div className="media-preview-strip mt-md">
+                  {inc.media_urls.slice(0, 3).map((url, i) => (
+                    <div key={i} className="media-thumb glass rounded-sm overflow-hidden border border-white/10">
+                      <img src={url} alt="" className="object-cover w-full h-full" />
+                    </div>
+                  ))}
+                  {inc.media_urls.length > 3 && (
+                    <div className="media-thumb-more glass rounded-sm flex items-center justify-center text-xs text-muted border border-white/10">
+                      +{inc.media_urls.length - 3}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="mt-md text-[10px] text-accent opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-xs font-semibold uppercase tracking-wider">
+                Ver detalles <MoreVertical size={10} />
+              </div>
+            </div>
+            
+            <div className="card-bottom border-t">
+              <div className="reporter">
+                <div className="avatar avatar-sm avatar-gradient">
+                  {inc.reporter.charAt(0)}
+                </div>
+                <span className="text-xs text-muted truncate max-w-[100px]">{inc.reporter}</span>
+              </div>
+              
+              <div className={`status-pill status-${STATUS_DETAILS[inc.status]?.color || 'secondary'}`}>
+                {STATUS_DETAILS[inc.status]?.label || inc.status}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {isModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Nueva Incidencia</h2>
+              <button className="btn-icon btn-ghost" onClick={() => setIsModalOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateIncident}>
+              <div className="modal-body">
+                <div className="input-group mb-md">
+                  <label className="input-label">Tipo de Incidencia</label>
+                  <select 
+                    className="select"
+                    value={newIncident.title}
+                    onChange={e => setNewIncident({...newIncident, title: e.target.value})}
+                    required
+                  >
+                    <option value="">Seleccionar tipo...</option>
+                    {tipos.map(t => (
+                      <option key={t.nombre} value={t.nombre}>{t.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="input-group mb-md">
+                  <label className="input-label">Zona / Ubicación</label>
+                  <select 
+                    className="select"
+                    value={newIncident.location}
+                    onChange={e => setNewIncident({...newIncident, location: e.target.value, room: ''})}
+                    required
+                  >
+                    <option value="">Seleccionar zona...</option>
+                    {zonas.map(z => (
+                      <option key={z.id} value={z.nombre}>{z.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {newIncident.location && zonas.find(z => z.nombre === newIncident.location) && (
+                  <div className="input-group mb-md animate-fade-in">
+                    <label className="input-label">Habitación (Opcional)</label>
+                    <select 
+                      className="select"
+                      value={newIncident.room || ''}
+                      onChange={e => setNewIncident({...newIncident, room: e.target.value})}
+                    >
+                      <option value="">Cualquier ubicación en {newIncident.location}</option>
+                      {habitaciones
+                        .filter(h => h.zona_id === zonas.find(z => z.nombre === newIncident.location)?.id)
+                        .map(h => (
+                          <option key={h.id} value={h.nombre}>{h.nombre}</option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+                <div className="input-group">
+                  <label className="input-label">Prioridad</label>
+                  <select 
+                    className="select"
+                    value={newIncident.priority}
+                    onChange={e => setNewIncident({...newIncident, priority: e.target.value})}
+                  >
+                    <option value="low">Baja</option>
+                    <option value="medium">Media</option>
+                    <option value="high">Alta</option>
+                  </select>
+                </div>
+                <div className="input-group mt-md">
+                  <label className="input-label">Descripción del Problema</label>
+                  <textarea 
+                    className="input"
+                    rows="3"
+                    placeholder="Detalla qué sucede..."
+                    value={newIncident.descripcion || ''}
+                    onChange={e => setNewIncident({...newIncident, descripcion: e.target.value})}
+                  />
+                </div>
+
+                <div className="input-group mt-md">
+                  <label className="input-label mb-sm">Archivos Adjuntos</label>
+                  <div className="flex flex-wrap gap-sm">
+                    {newIncident.media_urls?.map((url, i) => (
+                      <div key={i} className="media-thumb glass rounded-md overflow-hidden border border-white/10 w-16 h-16 relative group">
+                        <img src={url} alt="" className="object-cover w-full h-full" />
+                        <button 
+                          className="absolute top-0 right-0 bg-danger text-white p-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => setNewIncident(prev => ({
+                            ...prev,
+                            media_urls: prev.media_urls.filter((_, idx) => idx !== i)
+                          }))}
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="upload-box glass hover:border-accent transition-all rounded-md border-2 border-dashed border-white/10 w-16 h-16 flex items-center justify-center cursor-pointer">
+                      {uploading ? (
+                        <RefreshCw className="animate-spin text-accent" size={16} />
+                      ) : (
+                        <Plus size={16} className="text-muted" />
+                      )}
+                      <input type="file" hidden accept="image/*,video/*" onChange={handleModalFileUpload} disabled={uploading} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Crear Incidencia</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Panel de Detalles (Slide-over) */}
+      {isDetailPanelOpen && selectedIncident && (
+        <div className="panel-overlay" onClick={() => setIsDetailPanelOpen(false)}>
+          <div className="detail-panel glass-card" onClick={e => e.stopPropagation()}>
+            <div className="panel-header border-b px-xl py-lg flex justify-between items-center">
+              <div className="flex items-center gap-md">
+                <span className={`status-dot bg-${STATUS_DETAILS[selectedIncident.status]?.color}`}></span>
+                <h2 className="text-lg font-semibold">Incidencias / #{selectedIncident.id}</h2>
+              </div>
+              <button 
+                className="btn-icon btn-ghost hover:bg-white/10 rounded-full h-10 w-10 flex items-center justify-center transition-colors" 
+                onClick={() => setIsDetailPanelOpen(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="panel-body p-xl overflow-y-auto">
+              <section className="mb-xl">
+                <div className="flex flex-col gap-sm mb-lg">
+                  <div className="flex items-center gap-md">
+                    <span className={`badge priority-${selectedIncident.priority} uppercase tracking-widest text-[10px]`}>
+                      {selectedIncident.priority === 'high' ? 'Alta' : selectedIncident.priority === 'medium' ? 'Media' : 'Baja'}
+                    </span>
+                    <span className="text-xs text-secondary font-mono">#{selectedIncident.id}</span>
+                  </div>
+                  <h1 className="text-3xl font-bold tracking-tight">{selectedIncident.title}</h1>
+                </div>
+                
+                <div className="flex flex-wrap gap-xl text-sm text-secondary mb-xl pb-xl border-b border-white/5">
+                  <div className="flex items-center gap-md">
+                    <div className="p-sm glass rounded-lg text-accent">
+                      <MapPin size={18} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase text-muted font-bold">Ubicación</span>
+                      <span className="text-primary">{selectedIncident.location}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-md">
+                    <div className="p-sm glass rounded-lg text-accent">
+                      <Clock size={18} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase text-muted font-bold">Reportado</span>
+                      <span className="text-primary">{selectedIncident.time}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label mb-md text-xs uppercase tracking-widest text-muted">Cambiar Estado</label>
+                  <div className="status-selector-grid">
+                    {Object.entries(STATUS_DETAILS).map(([key, details]) => (
+                      <button 
+                        key={key}
+                        className={`status-option ${selectedIncident.status === key ? 'active' : ''} border-${details.color}`}
+                        onClick={() => handleUpdateStatus(selectedIncident.id, key)}
+                      >
+                        <details.icon size={16} className={`text-${details.color}`} />
+                        <span>{details.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <section className="mb-xl p-lg glass rounded-2xl">
+                <h3 className="section-title flex items-center gap-sm mb-lg text-sm font-bold uppercase tracking-widest">
+                  <ImageIcon size={18} className="text-accent" />
+                  Multimedia y Archivos
+                </h3>
+                
+                <div className="media-grid">
+                  {selectedIncident.media_urls?.map((url, i) => (
+                    <div key={i} className="media-item glass relative group border border-white/5 hover:border-accent/50 transition-all rounded-xl overflow-hidden shadow-xl">
+                      <img src={url} alt="" className="media-content group-hover:scale-110 transition-transform duration-500" onClick={() => window.open(url, '_blank')} />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                        <Plus size={20} className="text-white" />
+                      </div>
+                    </div>
+                  ))}
+                  <label className="upload-box glass hover:border-accent transition-all rounded-xl border-2 border-dashed border-white/10 hover:bg-accent/5 group">
+                    {uploading ? (
+                      <RefreshCw className="animate-spin text-accent" />
+                    ) : (
+                      <>
+                        <div className="p-md bg-white/5 rounded-full mb-xs group-hover:bg-accent/20 transition-colors">
+                          <Plus size={24} className="text-muted group-hover:text-accent transition-colors" />
+                        </div>
+                        <span className="text-[10px] uppercase font-bold text-muted group-hover:text-accent transition-colors">Añadir Archivo</span>
+                      </>
+                    )}
+                    <input type="file" hidden accept="image/*,video/*" onChange={handleFileUpload} disabled={uploading} />
+                  </label>
+                </div>
+              </section>
+
+              <section className="p-lg glass rounded-2xl">
+                <h3 className="section-title flex items-center gap-sm mb-lg text-sm font-bold uppercase tracking-widest">
+                  <MessageSquare size={18} className="text-accent" />
+                  Descripción y Notas
+                </h3>
+                <div className="p-md glass rounded-xl min-h-[120px] text-sm text-secondary leading-relaxed border border-white/5">
+                  {selectedIncident.descripcion || "No hay descripción adicional para esta incidencia."}
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .mb-md { margin-bottom: var(--spacing-md); }
+        .incidencias-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: var(--spacing-sm) var(--spacing-md);
+          margin-bottom: var(--spacing-xl);
+          animation: slideInUp 0.4s ease;
+        }
+
+        .tabs {
+          display: flex;
+          gap: var(--spacing-sm);
+        }
+
+        .tab {
+          padding: 0.5rem 1rem;
+          color: var(--color-text-secondary);
+          font-weight: 500;
+          font-size: var(--font-size-sm);
+          border-bottom: 2px solid transparent;
+          transition: all var(--transition-fast);
+        }
+
+        .tab:hover {
+          color: var(--color-text-primary);
+        }
+
+        .tab.active {
+          color: var(--color-accent);
+          border-bottom-color: var(--color-accent);
+        }
+
+        .ml-sm { margin-left: var(--spacing-sm); }
+
+        .toolbar-actions {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-md);
+        }
+
+        .variant-small .search-input {
+          padding-top: 0.5rem;
+          padding-bottom: 0.5rem;
+        }
+
+        .incidencias-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          gap: var(--spacing-lg);
+          animation: slideInUp 0.5s ease;
+        }
+
+        .incident-card {
+          display: flex;
+          flex-direction: column;
+          transition: all var(--transition-normal);
+          overflow: hidden;
+        }
+
+        .media-preview-strip {
+          display: flex;
+          gap: 6px;
+        }
+
+        .media-thumb { width: 40px; height: 40px; }
+        .media-thumb-more { width: 40px; height: 40px; }
+
+        .status-pill {
+          font-size: 0.7rem;
+          font-weight: 700;
+          padding: 2px 8px;
+          border-radius: 20px;
+          text-transform: uppercase;
+        }
+
+        .status-danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+        .status-info { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .status-warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+        .status-secondary { background: rgba(255, 255, 255, 0.05); color: #9ca3af; }
+        .status-success { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+
+        .panel-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.61);
+          backdrop-filter: blur(4px);
+          z-index: 1000;
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .detail-panel {
+          width: 500px;
+          max-width: 95vw;
+          height: 100%;
+          background: var(--color-bg-dark);
+          animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          display: flex;
+          flex-direction: column;
+          border-left: 1px solid var(--color-border);
+        }
+
+        @keyframes slideInRight {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+
+        .status-selector-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: var(--spacing-sm);
+        }
+
+        .status-option {
+          padding: var(--spacing-sm) var(--spacing-md);
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: var(--radius-md);
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-sm);
+          font-size: var(--font-size-sm);
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .modal-header {
+          padding: 2rem 1.5rem 1rem;
+        }
+
+        .status-option {
+          padding: 12px 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--spacing-sm);
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          color: var(--color-text-secondary);
+        }
+
+        .status-option:hover { 
+          background: rgba(255, 255, 255, 0.1); 
+          transform: translateY(-2px);
+          color: var(--color-text-primary);
+        }
+
+        .status-option.active { 
+          background: rgba(99, 102, 241, 0.15);
+          border-color: var(--color-accent);
+          color: var(--color-text-primary);
+          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.25);
+        }
+
+        .status-option.active.border-danger { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2); }
+        .status-option.active.border-info { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2); }
+        .status-option.active.border-warning { border-color: #f59e0b; background: rgba(245, 158, 11, 0.1); box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2); }
+        .status-option.active.border-success { border-color: #10b981; background: rgba(16, 185, 129, 0.1); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2); }
+
+        .m-none { margin: 0; }
+        .py-none { padding-top: 0; padding-bottom: 0; }
+        .px-none { padding-left: 0; padding-right: 0; }
+        .px-0 { padding-left: 0; padding-right: 0; }
+        .py-none { padding-top: 0; padding-bottom: 0; }
+        .p-none { padding: 0; }
+        .mt-sm { margin-top: 0.5rem; }
+        .mb-sm { margin-bottom: 0.5rem; }
+        .mb-lg { margin-bottom: 1.5rem; }
+        .gap-xs { gap: 0.25rem; }
+        .pb-xl { padding-bottom: 2rem; }
+        .pb-lg { padding-bottom: 1.5rem; }
+        .mb-xl { margin-bottom: 2rem; }
+
+        .text-2xl { font-size: 1.5rem; }
+        .text-3xl { font-size: 1.875rem; }
+        .font-bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
+        .tracking-tight { letter-spacing: -0.025em; }
+        .tracking-widest { letter-spacing: 0.1em; }
+        .tracking-wider { letter-spacing: 0.05em; }
+        
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .items-start { align-items: flex-start; }
+        .justify-between { justify-content: space-between; }
+        .gap-md { gap: 1rem; }
+        .gap-sm { gap: 0.5rem; }
+        .gap-xl { gap: 2rem; }
+        .gap-lg { gap: 1.5rem; }
+        .flex-wrap { flex-wrap: wrap; }
+        .overflow-y-auto { overflow-y: auto; }
+        .h-10 { height: 2.5rem; }
+        .w-10 { width: 2.5rem; }
+        .rounded-full { border-radius: 9999px; }
+        .rounded-2xl { border-radius: 1rem; }
+        .rounded-xl { border-radius: 0.75rem; }
+        .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+
+        .group-hover\:scale-110:hover { transform: scale(1.1); }
+        .group-hover\:opacity-100:hover { opacity: 1; }
+
+        .text-muted { color: var(--color-text-muted); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-accent { color: var(--color-accent); }
+        .text-danger { color: #ef4444; }
+        .text-info { color: #3b82f6; }
+        .text-warning { color: #f59e0b; }
+        .text-success { color: #10b981; }
+        .bg-danger { background: #ef4444; }
+        .bg-info { background: #3b82f6; }
+        .bg-warning { background: #f59e0b; }
+        .bg-success { background: #10b981; }
+      `}</style>
+    </div>
+  )
+}

@@ -1,0 +1,509 @@
+import { 
+  AlertTriangle, 
+  CheckCircle, 
+  Clock, 
+  Activity,
+  ArrowUpRight,
+  MessageSquare,
+  Printer,
+  FileText,
+  ChevronRight,
+  X
+} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+
+export default function Dashboard() {
+  const navigate = useNavigate()
+  const [stats, setStats] = useState([])
+  const [recentIncidents, setRecentIncidents] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [reportData, setReportData] = useState(null)
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    setLoading(true)
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      
+      // 1. Incidencias activas (pending / in-progress)
+      const { count: activeIncidents } = await supabase
+        .from('incidencias')
+        .select('*', { count: 'exact', head: true })
+        .in('status', ['pending', 'in-progress'])
+
+      // 2. Resueltas hoy
+      const { count: resolvedToday } = await supabase
+        .from('incidencias')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'resolved')
+        .gte('created_at', today)
+
+      // 3. Mantenimientos para hoy
+      const { count: pendingMantenimiento } = await supabase
+        .from('mantenimiento_preventivo')
+        .select('*', { count: 'exact', head: true })
+        .lte('proxima_fecha', today)
+
+      // 4. Mensajes sin leer (simulado o real si existe la columna read)
+      const { count: unreadMessages } = await supabase
+        .from('mensajes')
+        .select('*', { count: 'exact', head: true })
+        .eq('read', false)
+
+      setStats([
+        { id: 1, title: 'Incidencias Activas', value: activeIncidents || 0, icon: AlertTriangle, color: 'danger' },
+        { id: 2, title: 'Resueltas Hoy', value: resolvedToday || 0, icon: CheckCircle, color: 'success' },
+        { id: 3, title: 'Mantos. Pendientes', value: pendingMantenimiento || 0, icon: Clock, color: 'info' },
+        { id: 4, title: 'Mensajes Nuevos', value: unreadMessages || 0, icon: MessageSquare, color: 'accent' },
+      ])
+
+      // Incidencias recientes
+      const { data: incidents } = await supabase
+        .from('incidencias')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5)
+      
+      setRecentIncidents(incidents || [])
+
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const prepareReport = async () => {
+    setIsReportModalOpen(true)
+    // Recopilar datos detallados para el reporte
+    const { data: incs } = await supabase.from('incidencias').select('*').limit(50)
+    const { data: hist } = await supabase.from('historial_mantenimiento').select('*, tarea:tarea_id(titulo)').limit(20)
+    
+    setReportData({
+      date: new Date().toLocaleString(),
+      incidents: incs || [],
+      maintenance: hist || []
+    })
+  }
+
+  return (
+    <div className="dashboard animate-fade-in">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Vista General</h1>
+          <p className="page-subtitle">Resumen operativo en tiempo real</p>
+        </div>
+        <button className="btn btn-primary" onClick={prepareReport}>
+          <Activity size={18} />
+          <span>Generar Reporte</span>
+        </button>
+      </div>
+
+      <div className="stats-grid">
+        {stats.map((stat) => {
+          const Icon = stat.icon
+          return (
+            <div key={stat.id} className="stat-card glass-card">
+              <div className="stat-header">
+                <span className="stat-title">{stat.title}</span>
+                <div className={`stat-icon-wrapper text-${stat.color} bg-${stat.color}-light`}>
+                  <Icon size={20} />
+                </div>
+              </div>
+              <div className="stat-body">
+                <h3 className="stat-value">{stat.value}</h3>
+                {stat.change && (
+                  <span className={`stat-change ${stat.trend === 'up' ? 'text-success' : 'text-danger'}`}>
+                    <ArrowUpRight size={14} className={stat.trend === 'down' ? 'rotate-90' : ''} />
+                    {stat.change}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="dashboard-grid mt-xl">
+        <div className="glass-card panel">
+          <div className="panel-header border-b">
+            <h3>Incidencias Recientes</h3>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/incidencias')}>Ver todas</button>
+          </div>
+          
+          <div className="panel-body">
+            <ul className="incident-list">
+              {recentIncidents.map((incident) => (
+                <li key={incident.id} className="incident-item">
+                  <div className="incident-status">
+                    <div className={`priority-indicator priority-${incident.priority}`}></div>
+                  </div>
+                  
+                  <div className="incident-content">
+                    <div className="incident-top">
+                      <span className="incident-id text-accent">ID: {incident.id}</span>
+                      <span className="incident-time">{new Date(incident.created_at).toLocaleTimeString()}</span>
+                    </div>
+                    <h4 className="incident-title">{incident.title}</h4>
+                    <div className="incident-bottom">
+                      <span className="badge badge-neutral">Hab. {incident.location}</span>
+                      <span className={`badge badge-${
+                        incident.status === 'resolved' ? 'success' : 
+                        incident.status === 'in-progress' ? 'warning' : 'danger'
+                      }`}>
+                        {incident.status === 'resolved' ? 'Resuelta' : 
+                         incident.status === 'in-progress' ? 'En proceso' : 'Pendiente'}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+              {recentIncidents.length === 0 && (
+                <div className="p-xl text-center text-muted">No hay incidencias registradas.</div>
+              )}
+            </ul>
+          </div>
+        </div>
+
+        <div className="glass-card panel">
+          <div className="panel-header border-b">
+            <h3>Actividad de Departamentos</h3>
+          </div>
+          <div className="panel-body align-center empty-state">
+             <Activity className="text-muted" size={48} />
+             <p>Los gráficos se cargarán cuando haya suficientes datos históricos.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL DE REPORTE */}
+      {isReportModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsReportModalOpen(false)}>
+          <div className="modal-content report-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header hide-print">
+              <div className="flex items-center gap-sm">
+                <FileText className="text-accent" />
+                <h2>Reporte de Operaciones</h2>
+              </div>
+              <div className="flex gap-sm">
+                <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+                  <Printer size={16} /> Imprimir / PDF
+                </button>
+                <button className="btn-icon btn-ghost" onClick={() => setIsReportModalOpen(false)}><X size={20} /></button>
+              </div>
+            </div>
+
+            <div className="modal-body printable-area">
+              <div className="report-header text-center mb-xl">
+                <h1 className="text-2xl font-bold uppercase tracking-widest">HotelOps Pro - Reporte Operativo</h1>
+                <p className="text-muted">Fecha de generación: {reportData?.date}</p>
+              </div>
+
+              <div className="report-section mb-xl">
+                <h3 className="border-b pb-sm mb-md font-bold text-accent uppercase">Resumen de Incidencias</h3>
+                <table className="config-table w-full">
+                  <thead>
+                    <tr><th>Título</th><th>Ubicación</th><th>Prioridad</th><th>Estado</th></tr>
+                  </thead>
+                  <tbody>
+                    {reportData?.incidents.map(inc => (
+                      <tr key={inc.id}>
+                        <td>{inc.title}</td>
+                        <td>{inc.location}</td>
+                        <td><span className={`priority-badge priority-${inc.priority}`}>{inc.priority?.toUpperCase()}</span></td>
+                        <td>{inc.status}</td>
+                      </tr>
+                    ))}
+                    {reportData?.incidents.length === 0 && <tr><td colSpan="4" className="text-center p-md">Sin incidencias en el periodo.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="report-section">
+                <h3 className="border-b pb-sm mb-md font-bold text-accent uppercase">Mantenimiento Preventivo Ejecutado</h3>
+                <table className="config-table w-full">
+                  <thead>
+                    <tr><th>Tarea</th><th>Fecha</th><th>Notas</th></tr>
+                  </thead>
+                  <tbody>
+                    {reportData?.maintenance.map(m => (
+                      <tr key={m.id}>
+                        <td>{m.tarea?.titulo}</td>
+                        <td>{new Date(m.completado_el).toLocaleDateString()}</td>
+                        <td className="text-xs">{m.notas}</td>
+                      </tr>
+                    ))}
+                    {reportData?.maintenance.length === 0 && <tr><td colSpan="3" className="text-center p-md">Sin registros de mantenimiento.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="report-footer mt-2xl pt-xl border-t text-center text-xs text-muted">
+                Este reporte fue generado automáticamente por el sistema de gestión HotelOps Pro.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .page-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          margin-bottom: var(--spacing-xl);
+          animation: slideInUp 0.3s ease;
+        }
+
+        .page-title {
+          font-size: var(--font-size-2xl);
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+
+        .page-subtitle {
+          color: var(--color-text-secondary);
+          margin-top: var(--spacing-xs);
+        }
+
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: var(--spacing-lg);
+          animation: slideInUp 0.4s ease;
+        }
+
+        .stat-card {
+          padding: var(--spacing-lg);
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-md);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .stat-card::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at top right, var(--color-bg-glass), transparent);
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .stat-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.1);
+        }
+
+        .stat-card:hover::after {
+          opacity: 1;
+        }
+
+        .stat-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .stat-title {
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-sm);
+          font-weight: 600;
+        }
+
+        .stat-icon-wrapper {
+          width: 40px;
+          height: 40px;
+          border-radius: var(--radius-md);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .bg-danger-light { background: var(--color-danger-light); }
+        .bg-success-light { background: var(--color-success-light); }
+        .bg-info-light { background: var(--color-info-light); }
+        .bg-accent-light { background: var(--color-accent-light); }
+        
+        .text-danger { color: #ff8a8a; } /* Más brillante para usar sobre fondos oscuros */
+        .text-success { color: #4ade80; }
+        .text-info { color: #2dd4bf; }
+        .text-accent { color: var(--color-accent-hover); }
+
+        .stat-body {
+          display: flex;
+          align-items: baseline;
+          gap: var(--spacing-sm);
+        }
+
+        .stat-value {
+          font-size: var(--font-size-2xl);
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          color: var(--color-text-primary);
+        }
+
+        .stat-change {
+          display: flex;
+          align-items: center;
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+        }
+
+        .rotate-90 { transform: rotate(90deg); }
+
+        .dashboard-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: var(--spacing-lg);
+          animation: slideInUp 0.5s ease;
+        }
+
+        .panel-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: var(--spacing-lg);
+        }
+
+        .panel-header h3 {
+          font-size: var(--font-size-md);
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: var(--color-text-secondary);
+        }
+
+        .panel-body {
+          padding: 0;
+        }
+
+        .align-center {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          min-height: 250px;
+        }
+
+        .incident-list {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .incident-item {
+          display: flex;
+          gap: var(--spacing-md);
+          padding: var(--spacing-md) var(--spacing-lg);
+          border-bottom: 1px solid var(--color-border);
+          transition: background var(--transition-fast);
+          cursor: pointer;
+        }
+
+        .incident-item:hover {
+          background: rgba(255, 255, 255, 0.03);
+          transform: translateX(4px);
+        }
+
+        .incident-item:last-child {
+          border-bottom: none;
+        }
+
+        .incident-status {
+          padding-top: var(--spacing-sm);
+        }
+
+        .priority-indicator {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+        }
+
+        .priority-high { background: var(--color-danger); box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+        .priority-medium { background: var(--color-warning); }
+        .priority-low { background: var(--color-info); }
+
+        .incident-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-xs);
+        }
+
+        .incident-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .incident-id {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          letter-spacing: 0.05em;
+        }
+
+        .incident-time {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-muted);
+        }
+
+        .incident-title {
+          font-size: var(--font-size-md);
+          font-weight: 600;
+        }
+
+        .incident-bottom {
+          display: flex;
+          gap: var(--spacing-sm);
+          margin-top: var(--spacing-xs);
+        }
+
+        .mt-xl { margin-top: var(--spacing-xl); }
+
+        @media (max-width: 1024px) {
+          .dashboard-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        /* Estilos para impresión */
+        @media print {
+          .sidebar, .page-header, .stats-grid, .dashboard-grid, .hide-print {
+            display: none !important;
+          }
+          .modal-overlay {
+            position: static;
+            background: white;
+            padding: 0;
+          }
+          .modal-content {
+            box-shadow: none;
+            width: 100%;
+            max-width: none;
+            background: white;
+            color: black;
+          }
+          .printable-area {
+            color: black !important;
+          }
+          .text-muted { color: #666 !important; }
+          .glass-card { background: white !important; border: 1px solid #eee !important; }
+        }
+
+        .report-modal { max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; }
+        .priority-badge { font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; }
+        .priority-high { color: #ef4444; border: 1px solid #ef4444; }
+        .priority-medium { color: #f59e0b; border: 1px solid #f59e0b; }
+        .priority-low { color: #3b82f6; border: 1px solid #3b82f6; }
+      `}</style>
+    </div>
+  )
+}
