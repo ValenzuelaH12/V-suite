@@ -2,16 +2,40 @@ import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 
-const NotificationContext = createContext()
+const NotificationContext = createContext<any>(null)
 
-export function NotificationProvider({ children }) {
+export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth()
-  const [unreadPerChannel, setUnreadPerChannel] = useState({})
-  const [chatNotifications, setChatNotifications] = useState([])
+  const [unreadPerChannel, setUnreadPerChannel] = useState<Record<string, number>>({})
+  const [chatNotifications, setChatNotifications] = useState<any[]>([])
+  const [permission, setPermission] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  )
   const notificationSound = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3'))
 
-  // Total de mensajes no leídos
-  const totalUnread = Object.values(unreadPerChannel).reduce((acc, count) => acc + count, 0)
+  const totalUnread = Object.values(unreadPerChannel).reduce((acc: number, count: number) => acc + count, 0)
+
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && permission === 'default') {
+      Notification.requestPermission().then(setPermission)
+    }
+  }, [permission])
+
+  const sendNotification = (title: string, options?: NotificationOptions) => {
+    if (permission === 'granted') {
+      const notif = new Notification(title, {
+        icon: '/pwa-192x192.png',
+        badge: '/favicon.svg',
+        ...options
+      })
+      
+      notif.onclick = () => {
+        window.focus()
+        notif.close()
+      }
+    }
+    notificationSound.current.play().catch(() => {})
+  }
 
   useEffect(() => {
     if (!profile) return
@@ -26,18 +50,15 @@ export function NotificationProvider({ children }) {
         const msg = payload.new
         if (!msg || msg.sender_id === profile.id) return
 
-        // 1. Actualizar contador por canal (solo si no estamos en ese canal y la ventana no está activa)
-        // Nota: El componente Chat.jsx se encargará de resetear su propio canal activo
         setUnreadPerChannel(prev => ({
           ...prev,
           [msg.channel]: (prev[msg.channel] || 0) + 1
         }))
 
-        // 2. Añadir a la lista de notificaciones temporales (para el Header)
         const newNotif = {
           id: `chat-${msg.id}`,
           type: 'chat',
-          title: `Chat: ${msg.channel.toUpperCase()}`,
+          title: `Mensaje en ${msg.channel}`,
           subtitle: msg.text_content,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           link: '/chat',
@@ -45,15 +66,26 @@ export function NotificationProvider({ children }) {
         }
         setChatNotifications(prev => [newNotif, ...prev].slice(0, 5))
 
-        // 3. Alerta sonora y browser si procede
         if (document.hidden || window.location.pathname !== '/chat') {
-          notificationSound.current.play().catch(() => {})
-          if (Notification.permission === 'granted') {
-            new Notification(`Nuevo mensaje en ${msg.channel.toUpperCase()}`, {
-              body: msg.text_content,
-              icon: '/favicon.ico'
-            })
-          }
+          sendNotification(`Nuevo mensaje en ${msg.channel}`, {
+            body: msg.text_content,
+            tag: 'chat-notification'
+          })
+        }
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'incidencias',
+      }, (payload) => {
+        const inc = payload.new
+        if (!inc) return
+
+        if (inc.priority === 'high') {
+          sendNotification('🚨 INCIDENCIA URGENTE', {
+            body: `${inc.title} en ${inc.location}`,
+            tag: 'urgent-incident'
+          })
         }
       })
       .subscribe()
@@ -61,14 +93,13 @@ export function NotificationProvider({ children }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [profile])
+  }, [profile, permission])
 
-  const clearChannelUnread = (channelId) => {
+  const clearChannelUnread = (channelId: string) => {
     setUnreadPerChannel(prev => ({
       ...prev,
       [channelId]: 0
     }))
-    // Opcional: Limpiar notificaciones de este canal en la lista global
     setChatNotifications(prev => prev.filter(n => !n.title.toLowerCase().includes(channelId.toLowerCase())))
   }
 
@@ -77,7 +108,9 @@ export function NotificationProvider({ children }) {
       unreadPerChannel, 
       totalUnread, 
       chatNotifications, 
-      clearChannelUnread 
+      clearChannelUnread,
+      sendNotification,
+      permission 
     }}>
       {children}
     </NotificationContext.Provider>
