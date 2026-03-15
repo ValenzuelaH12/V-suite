@@ -326,33 +326,10 @@ export default function Inventory() {
       </div>
 
       {isModalOpen && (
-        <div 
-          onClick={() => setIsModalOpen(false)}
-          style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.7)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 99999,
-            padding: '1rem'
-          }}
-        >
-          <div 
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: '#1a1a2e',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '1rem',
-              width: '100%',
-              maxWidth: '500px',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>{editingItem ? 'Editar Artículo' : 'Nuevo Artículo'}</h2>
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editingItem ? 'Editar Artículo' : 'Nuevo Artículo'}</h2>
               <button className="btn-icon btn-ghost" onClick={() => setIsModalOpen(false)}><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit}>

@@ -547,11 +547,12 @@ input, textarea, select {
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Alinea al inicio para pantallas pequeñas */
   justify-content: center;
   z-index: 9000;
   animation: fadeIn 0.2s ease;
-  padding: var(--spacing-lg);
+  padding: var(--spacing-2xl) var(--spacing-md);
+  overflow-y: auto; /* Permite scroll si el modal es muy alto */
 }
 
 .modal-content {
@@ -561,8 +562,8 @@ input, textarea, select {
   box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: fit-content; /* Deja que el contenido determine la altura */
+  margin-bottom: var(--spacing-2xl); /* Espacio al final del scroll */
   animation: slideInUp 0.3s ease;
 }
 

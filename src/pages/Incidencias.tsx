@@ -883,9 +883,7 @@ export default function Incidencias() {
           transition: all 0.2s;
         }
 
-        .modal-header {
-          padding: 2rem 1.5rem 1rem;
-        }
+
 
         .status-option {
           padding: 12px 16px;
