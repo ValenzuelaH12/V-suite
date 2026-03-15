@@ -14,6 +14,10 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { Line } from 'react-chartjs-2'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -85,25 +89,27 @@ export default function Dashboard() {
         .limit(5)
       setMyTasks(myIncs || [])
 
-      // 6. Tendencias de lecturas (desde contadores tipo luz)
-      const { data: luzContadores } = await supabase.from('contadores').select('id').eq('tipo', 'luz').limit(1)
-      if (luzContadores && luzContadores[0]) {
-        const { data: readings } = await supabase
-          .from('lecturas')
-          .select('valor, fecha, contador_id')
-          .eq('contador_id', luzContadores[0].id)
-          .order('fecha', { ascending: false })
-          .limit(7)
-        
-        // Calcular consumo localmente como en Lecturas.jsx
-        if (readings) {
-          const processed = readings.map((curr, idx) => {
-            const previous = readings[idx + 1]
-            const consumo = previous ? curr.valor - previous.valor : 0
-            return { ...curr, consumo }
-          })
-          setReadingTrends(processed.reverse())
+      // 6. Tendencias de lecturas (todos los tipos)
+      const { data: allContadores } = await supabase.from('contadores').select('id, tipo, nombre')
+      if (allContadores && allContadores.length > 0) {
+        const trendData = {}
+        for (const c of allContadores) {
+          const { data: readings } = await supabase
+            .from('lecturas')
+            .select('valor, fecha')
+            .eq('contador_id', c.id)
+            .order('fecha', { ascending: false })
+            .limit(10)
+          if (readings && readings.length > 1) {
+            const processed = readings.map((curr, idx) => {
+              const prev = readings[idx + 1]
+              return { fecha: curr.fecha, consumo: prev ? curr.valor - prev.valor : 0 }
+            }).reverse()
+            if (!trendData[c.tipo]) trendData[c.tipo] = []
+            trendData[c.tipo].push(...processed)
+          }
         }
+        setReadingTrends(trendData)
       }
 
     } catch (error) {
@@ -231,30 +237,65 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="glass-card panel">
+        <div className="glass-card panel" style={{ gridColumn: '1 / -1' }}>
           <div className="panel-header border-b">
-            <h3>Tendencia Consumo (Luz)</h3>
+            <h3>Tendencia de Consumo</h3>
           </div>
-          <div className="panel-body p-lg h-full">
-            <div className="flex items-end gap-sm h-48 pt-lg">
-              {readingTrends.map((r, idx) => {
-                const maxVal = Math.max(...readingTrends.map(x => x.consumo || 1))
-                const height = r.consumo ? (r.consumo / maxVal) * 100 : 5
-                return (
-                  <div key={idx} className="flex-1 flex flex-column items-center gap-xs h-full justify-end">
-                    <div className="text-[10px] text-muted">{r.consumo?.toFixed(1)}</div>
-                    <div className="w-full bg-accent rounded-t-sm transition-all hover:opacity-80" style={{ height: `${height}%`, minHeight: '4px' }}></div>
-                    <div className="text-[9px] text-muted whitespace-nowrap">{new Date(r.fecha).toLocaleDateString(undefined, {weekday: 'short'})}</div>
-                  </div>
-                )
-              })}
-              {readingTrends.length === 0 && (
+          <div className="panel-body p-lg" style={{ height: '320px' }}>
+            {(() => {
+              const typeColors = {
+                luz: { border: '#818cf8', bg: 'rgba(129,140,248,0.1)' },
+                agua: { border: '#2dd4bf', bg: 'rgba(45,212,191,0.1)' },
+                gas: { border: '#fbbf24', bg: 'rgba(251,191,36,0.1)' }
+              }
+              const trends = readingTrends || {}
+              const allDates = [...new Set(Object.values(trends).flat().map(r => r.fecha))].sort()
+              const labels = allDates.map(d => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }))
+
+              const datasets = Object.entries(typeColors)
+                .filter(([tipo]) => trends[tipo] && trends[tipo].length > 0)
+                .map(([tipo, colors]) => ({
+                  label: tipo.charAt(0).toUpperCase() + tipo.slice(1),
+                  data: allDates.map(d => {
+                    const match = (trends[tipo] || []).find(r => r.fecha === d)
+                    return match ? match.consumo : null
+                  }),
+                  borderColor: colors.border,
+                  backgroundColor: colors.bg,
+                  fill: true,
+                  tension: 0.4,
+                  pointRadius: 4,
+                  pointHoverRadius: 6,
+                  borderWidth: 2,
+                  spanGaps: true
+                }))
+
+              if (datasets.length === 0) return (
                 <div className="w-full h-full flex flex-column items-center justify-center text-muted">
                   <Activity size={32} className="mb-sm opacity-20" />
-                  <p className="text-xs">Sin datos</p>
+                  <p className="text-xs">Sin datos de consumo</p>
                 </div>
-              )}
-            </div>
+              )
+
+              return (
+                <Line
+                  data={{ labels, datasets }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' as const },
+                    plugins: {
+                      legend: { position: 'top' as const, labels: { color: '#a0a0c0', font: { size: 12 }, padding: 16, usePointStyle: true } },
+                      tooltip: { backgroundColor: 'rgba(15,15,35,0.95)', titleColor: '#e0e0f0', bodyColor: '#a0a0c0', padding: 12, cornerRadius: 8, borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }
+                    },
+                    scales: {
+                      x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b6b8d', font: { size: 11 } } },
+                      y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b6b8d', font: { size: 11 } }, beginAtZero: true }
+                    }
+                  }}
+                />
+              )
+            })()}
           </div>
         </div>
       </div>
