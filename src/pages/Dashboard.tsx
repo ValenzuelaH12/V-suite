@@ -240,7 +240,7 @@ export default function Dashboard() {
         styles: { fontSize: 10 }
       })
 
-      doc.save(`Reporte_HotelOps_${start}_a_${end}.pdf`)
+      doc.save(`Reporte_VSuite_${start}_a_${end}.pdf`)
       setIsReportModalOpen(false)
     } catch (error) {
       console.error('Error generating report:', error)

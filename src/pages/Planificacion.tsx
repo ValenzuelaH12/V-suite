@@ -202,7 +202,7 @@ export default function Planificacion() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `Mantenimiento_HotelOps_${new Date().toISOString().split('T')[0]}.csv`
+    link.download = `Mantenimiento_VSuite_${new Date().toISOString().split('T')[0]}.csv`
     link.click()
     setShowExportMenu(false)
   }
@@ -213,7 +213,7 @@ export default function Planificacion() {
     doc.text('Reporte de Mantenimiento Preventivo', 14, 22)
     doc.setFontSize(11)
     doc.setTextColor(100)
-    doc.text(`HotelOps Pro — ${new Date().toLocaleDateString()}`, 14, 30)
+    doc.text(`V-Suite — ${new Date().toLocaleDateString()}`, 14, 30)
 
     const tableData = tasks.map(t => [
       t.titulo,
@@ -256,7 +256,7 @@ export default function Planificacion() {
       })
     }
 
-    doc.save(`Mantenimiento_HotelOps_${new Date().toISOString().split('T')[0]}.pdf`)
+    doc.save(`Mantenimiento_VSuite_${new Date().toISOString().split('T')[0]}.pdf`)
     setShowExportMenu(false)
   }
 

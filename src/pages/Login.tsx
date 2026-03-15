@@ -37,7 +37,7 @@ export default function Login() {
           <div className="logo-container">
             <Hotel className="text-accent" size={40} />
           </div>
-          <h1>HotelOps <span className="text-accent">Pro</span></h1>
+          <h1>V-<span className="text-accent">Suite</span></h1>
           <p className="text-muted">Sistema de Gestión de Incidencias</p>
         </div>
 

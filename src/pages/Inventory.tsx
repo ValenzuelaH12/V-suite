@@ -148,7 +148,7 @@ export default function Inventory() {
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
     link.setAttribute('href', url)
-    link.setAttribute('download', `Inventario_HotelOps_${new Date().toISOString().split('T')[0]}.csv`)
+    link.setAttribute('download', `Inventario_VSuite_${new Date().toISOString().split('T')[0]}.csv`)
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
@@ -160,7 +160,7 @@ export default function Inventory() {
     const doc = new jsPDF()
     
     doc.setFontSize(18)
-    doc.text('Reporte de Inventario - HotelOps Pro', 14, 22)
+    doc.text('Reporte de Inventario - V-Suite', 14, 22)
     
     doc.setFontSize(11)
     doc.setTextColor(100)
@@ -195,7 +195,7 @@ export default function Inventory() {
       }
     })
 
-    doc.save(`Inventario_HotelOps_${new Date().toISOString().split('T')[0]}.pdf`)
+    doc.save(`Inventario_VSuite_${new Date().toISOString().split('T')[0]}.pdf`)
     setShowExportMenu(false)
   }
 
