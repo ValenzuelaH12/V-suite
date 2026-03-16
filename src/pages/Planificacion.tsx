@@ -9,6 +9,16 @@ import {
 } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { Calendar, momentLocalizer, Views } from 'react-big-calendar'
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
+import moment from 'moment'
+import 'moment/locale/es'
+import 'react-big-calendar/lib/css/react-big-calendar.css'
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
+
+moment.locale('es')
+const localizer = momentLocalizer(moment)
+const DnDCalendar = withDragAndDrop(Calendar)
 
 const DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -26,8 +36,55 @@ export default function Planificacion() {
   const [allElements, setAllElements] = useState([])
   const [selectedElements, setSelectedElements] = useState([])
   const [notes, setNotes] = useState('')
+  const [view, setView] = useState(Views.MONTH)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showExportMenu, setShowExportMenu] = useState(false)
+
+  // Formatear tareas para el calendario
+  const events = tasks.map(t => ({
+    id: t.id,
+    title: t.titulo,
+    start: new Date(t.proxima_fecha + 'T09:00:00'),
+    end: new Date(t.proxima_fecha + 'T10:00:00'),
+    allDay: true,
+    resource: t
+  }))
+
+  const eventStyleGetter = (event) => {
+    const overdue = isOverdue(event.resource.proxima_fecha)
+    return {
+      style: {
+        backgroundColor: overdue ? 'rgba(239, 68, 68, 0.2)' : 'rgba(99, 102, 241, 0.2)',
+        color: overdue ? '#fca5a5' : '#a5b4fc',
+        border: overdue ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(99, 102, 241, 0.4)',
+        borderRadius: '6px',
+        fontSize: '0.75rem',
+        fontWeight: '600',
+        padding: '2px 6px'
+      }
+    }
+  }
+
+  const onEventDrop = async ({ event, start }) => {
+    const newDate = moment(start).format('YYYY-MM-DD')
+    
+    // Si la fecha es igual, no hacer nada
+    if (newDate === event.resource.proxima_fecha) return
+
+    try {
+      const { error } = await supabase
+        .from('mantenimiento_preventivo')
+        .update({ proxima_fecha: newDate })
+        .eq('id', event.id)
+
+      if (error) throw error
+      
+      toast.success(`Tarea "${event.title}" reprogramada para el ${newDate}`)
+      fetchTasks()
+    } catch (error: any) {
+      toast.error('Error al reprogramar: ' + error.message)
+    }
+  }
 
   useEffect(() => {
     fetchTasks()
@@ -277,44 +334,16 @@ export default function Planificacion() {
     }
   }
 
-  // --- Calendario custom ---
-  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate()
-  const getFirstDayOfMonth = (year, month) => {
-    const day = new Date(year, month, 1).getDay()
-    return day === 0 ? 6 : day - 1
+  const moveNext = () => {
+    if (view === Views.MONTH) setCurrentDate(moment(currentDate).add(1, 'month').toDate())
+    else if (view === Views.WEEK) setCurrentDate(moment(currentDate).add(1, 'week').toDate())
+    else setCurrentDate(moment(currentDate).add(1, 'day').toDate())
   }
-  const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
-  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
-  const goToday = () => setCurrentDate(new Date())
-  const getTasksForDate = (dateStr) => tasks.filter(t => t.proxima_fecha === dateStr)
 
-  const renderCalendarCells = () => {
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
-    const daysInMonth = getDaysInMonth(year, month)
-    const firstDay = getFirstDayOfMonth(year, month)
-    const today = new Date().toISOString().split('T')[0]
-    const cells = []
-    for (let i = 0; i < firstDay; i++) {
-      cells.push(<div key={`empty-${i}`} className="cal-cell cal-empty"></div>)
-    }
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      const dayTasks = getTasksForDate(dateStr)
-      const isToday = dateStr === today
-      cells.push(
-        <div key={dateStr} className={`cal-cell ${isToday ? 'cal-today' : ''} ${dayTasks.length > 0 ? 'cal-has-tasks' : ''}`}>
-          <span className={`cal-day-num ${isToday ? 'cal-today-num' : ''}`}>{day}</span>
-          {dayTasks.map(task => (
-            <div key={task.id} className={`cal-event ${isOverdue(task.proxima_fecha) ? 'cal-event-overdue' : 'cal-event-normal'}`}
-              onClick={() => setCompletingTask(task)} title={task.titulo}>
-              {task.titulo.length > 14 ? task.titulo.substring(0, 14) + '…' : task.titulo}
-            </div>
-          ))}
-        </div>
-      )
-    }
-    return cells
+  const movePrev = () => {
+    if (view === Views.MONTH) setCurrentDate(moment(currentDate).subtract(1, 'month').toDate())
+    else if (view === Views.WEEK) setCurrentDate(moment(currentDate).subtract(1, 'week').toDate())
+    else setCurrentDate(moment(currentDate).subtract(1, 'day').toDate())
   }
 
   return (
@@ -348,19 +377,56 @@ export default function Planificacion() {
         </div>
       )}
 
-      {/* CALENDARIO CUSTOM */}
+      {/* V-CALENDAR INTERACTIVO */}
       <section className="mb-xl glass-card overflow-hidden">
         <div className="cal-header">
-          <button className="btn-icon btn-ghost" onClick={prevMonth}><ChevronLeft size={20} /></button>
-          <div className="cal-title">
-            <h2>{MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
-            <button className="btn btn-sm btn-secondary" onClick={goToday}>Hoy</button>
+          <div className="flex items-center gap-md">
+            <button className="btn-icon btn-ghost" onClick={movePrev}><ChevronLeft size={20} /></button>
+            <div className="cal-title">
+              <h2>{moment(currentDate).format('MMMM YYYY')}</h2>
+              <button className="btn btn-sm btn-secondary" onClick={() => setCurrentDate(new Date())}>Hoy</button>
+            </div>
+            <button className="btn-icon btn-ghost" onClick={moveNext}><ChevronRight size={20} /></button>
           </div>
-          <button className="btn-icon btn-ghost" onClick={nextMonth}><ChevronRight size={20} /></button>
+          
+          <div className="flex gap-xs bg-black/20 p-xs rounded-lg">
+            <button className={`btn btn-xs ${view === Views.MONTH ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView(Views.MONTH)}>Mes</button>
+            <button className={`btn btn-xs ${view === Views.WEEK ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView(Views.WEEK)}>Semana</button>
+            <button className={`btn btn-xs ${view === Views.DAY ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView(Views.DAY)}>Día</button>
+          </div>
         </div>
-        <div className="cal-grid">
-          {DAYS.map(d => <div key={d} className="cal-day-header">{d}</div>)}
-          {renderCalendarCells()}
+
+        <div className="v-calendar-container" style={{ height: '500px' }}>
+          <DnDCalendar
+            localizer={localizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: '100%', padding: '1rem' }}
+            messages={{
+              next: "Sig.",
+              previous: "Ant.",
+              today: "Hoy",
+              month: "Mes",
+              week: "Semana",
+              day: "Día",
+              agenda: "Agenda",
+              date: "Fecha",
+              time: "Hora",
+              event: "Evento",
+              noEventsInRange: "No hay tareas en este rango"
+            }}
+            selectable
+            resizable
+            onEventDrop={onEventDrop}
+            onSelectEvent={(e) => setCompletingTask(e.resource)}
+            eventPropGetter={eventStyleGetter}
+            view={view}
+            onView={setView}
+            date={currentDate}
+            onNavigate={setCurrentDate}
+            toolbar={false} // Usamos nuestro toolbar custom arriba
+          />
         </div>
       </section>
 
@@ -623,35 +689,54 @@ export default function Planificacion() {
         .cal-header {
           display: flex; align-items: center; justify-content: space-between;
           padding: 1rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.06);
+          background: rgba(0, 0, 0, 0.2);
         }
         .cal-title { display: flex; align-items: center; gap: 1rem; }
-        .cal-title h2 { font-size: 1.1rem; font-weight: 700; }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-        .cal-day-header {
-          padding: 0.6rem; text-align: center; font-size: 0.75rem; font-weight: 600;
-          color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
+        .cal-title h2 { font-size: 1.1rem; font-weight: 700; text-transform: capitalize; }
+
+        /* V-Calendar Override */
+        .v-calendar-container .rbc-month-view,
+        .v-calendar-container .rbc-time-view {
+          border: none;
+          background: transparent;
         }
-        .cal-cell {
-          min-height: 80px; padding: 0.35rem; border: 1px solid rgba(255,255,255,0.04);
-          position: relative; transition: background 0.15s;
+        .v-calendar-container .rbc-off-range-bg {
+          background: rgba(0, 0, 0, 0.15);
         }
-        .cal-cell:hover { background: rgba(255,255,255,0.02); }
-        .cal-empty { background: rgba(0,0,0,0.1); }
-        .cal-today { background: rgba(99, 102, 241, 0.06) !important; }
-        .cal-day-num { display: inline-block; font-size: 0.8rem; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 2px; }
-        .cal-today-num {
-          background: var(--color-accent); color: white; border-radius: 50%;
-          width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700;
+        .v-calendar-container .rbc-header {
+          padding: 12px;
+          font-weight: 700;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          color: var(--color-text-muted);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
-        .cal-event {
-          font-size: 0.68rem; padding: 2px 5px; border-radius: 4px; margin-top: 2px;
-          cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-          font-weight: 600; transition: transform 0.1s, box-shadow 0.1s;
+        .v-calendar-container .rbc-month-row {
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
-        .cal-event:hover { transform: scale(1.03); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-        .cal-event-normal { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); }
-        .cal-event-overdue { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .v-calendar-container .rbc-day-bg {
+          border-left: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .v-calendar-container .rbc-today {
+          background: rgba(99, 102, 241, 0.05);
+        }
+        .v-calendar-container .rbc-event {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .v-calendar-container .rbc-event:hover {
+          transform: translateY(-2px);
+        }
+        .v-calendar-container .rbc-show-more {
+          background: rgba(255, 255, 255, 0.1);
+          color: var(--color-accent);
+          font-weight: 700;
+          font-size: 0.7rem;
+          border-radius: 4px;
+        }
+        .v-calendar-container .rbc-addons-dnd-dragged-event {
+          opacity: 0.5;
+        }
       `}</style>
     </div>
   )
