@@ -23,7 +23,7 @@ const INCIDENT_TYPES = [
 ]
 
 export default function GuestPortal() {
-  const { room } = useParams()
+  const { hotelId, room } = useParams()
   const toast = useToast()
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [description, setDescription] = useState('')
@@ -47,6 +47,7 @@ export default function GuestPortal() {
           priority: 'high',
           status: 'pendiente',
           descripcion: `[SOLICITUD HUÉSPED] - ${description || 'Sin descripción adicional.'}`,
+          hotel_id: hotelId === 'default' ? null : hotelId
         }])
         .select()
 

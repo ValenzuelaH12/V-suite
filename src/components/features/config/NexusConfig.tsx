@@ -6,11 +6,13 @@ import { Card } from '../../ui/Card';
 interface NexusConfigProps {
   rooms: Room[];
   zones: Zone[];
+  activeHotelId?: string | null;
 }
 
 export const NexusConfig: React.FC<NexusConfigProps> = ({ 
   rooms, 
-  zones 
+  zones,
+  activeHotelId
 }) => {
   const [activeFloor, setActiveFloor] = useState('1');
   const [selectedNexusZona, setSelectedNexusZona] = useState('all');
@@ -120,7 +122,7 @@ export const NexusConfig: React.FC<NexusConfigProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {filteredRooms.map((h: any) => {
           const zonaName = zones.find((z: any) => z.id === h.zona_id)?.nombre || 'General';
-          const portalUrl = `${window.location.origin}/guest/${h.nombre}`;
+          const portalUrl = `${window.location.origin}/guest/${activeHotelId || 'default'}/${h.nombre}`;
           const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(portalUrl)}`;
           
           return (

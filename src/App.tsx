@@ -76,6 +76,7 @@ function AppRoutes() {
       {/* Rutas Públicas para Huéspedes */}
       <Route path="/guest" element={<GuestPortal />} />
       <Route path="/guest/:room" element={<GuestPortal />} />
+      <Route path="/guest/:hotelId/:room" element={<GuestPortal />} />
       
       <Route path="/" element={
         <ProtectedRoute>

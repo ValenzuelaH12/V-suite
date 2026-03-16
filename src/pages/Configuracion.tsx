@@ -208,6 +208,7 @@ export default function Configuracion() {
             <NexusConfig 
               rooms={data.habitaciones} 
               zones={data.zonas} 
+              activeHotelId={activeHotelId}
             />
           )}
 
