@@ -714,6 +714,19 @@ export default function Dashboard() {
           .dashboard-grid {
             grid-template-columns: 1fr;
           }
+          .stats-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+
+        @media (max-width: Dispositivo) { /* 480 o 640 */
+          .stats-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .stats-grid { grid-template-columns: 1fr !important; }
         }
 
         /* Estilos para impresión */
