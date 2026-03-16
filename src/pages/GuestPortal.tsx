@@ -47,22 +47,20 @@ export default function GuestPortal() {
           priority: 'high',
           status: 'pendiente',
           descripcion: `[SOLICITUD HUÉSPED] - ${description || 'Sin descripción adicional.'}`,
-          // reporter_id: null // Omitidos para evitar errores de tipo UUID
         }])
         .select()
-        .single()
 
       if (error) {
         console.error('Error insertando incidencia:', error)
         throw error
       }
 
-      // Crear hilo de chat automático
-      if (incidentData) {
+      // Crear hilo de chat automático si tenemos el ID (puede fallar el select por RLS)
+      const incident = incidentData?.[0]
+      if (incident) {
         const { error: chatError } = await supabase.from('canales').insert([{
-          id: `inc_${incidentData.id}`,
+          id: `inc_${incident.id}`,
           nombre: `Huésped: Hab ${room || '?' }`,
-          tipo: 'incidencia',
           descripcion: `Atención directa al huésped en ${finalLocation}`
         }])
         if (chatError) console.error('Error creando canal de chat:', chatError)

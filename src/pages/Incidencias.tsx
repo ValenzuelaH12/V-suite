@@ -154,7 +154,6 @@ export default function Incidencias() {
         await supabase.from('canales').insert([{
           id: `inc_${incidentData.id}`,
           nombre: `Incidencia: ${incidentData.title}`,
-          tipo: 'incidencia',
           descripcion: `Hilo de coordinación para el reporte #${incidentData.id} en ${finalLocation}`
         }])
       }
