@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Image as ImageIcon, Video, Paperclip, Check, CheckCheck, RefreshCw, Plus, Users, Search, MessageSquare, X, Trash2 } from 'lucide-react'
+import { Send, Image as ImageIcon, Video, Paperclip, Check, CheckCheck, RefreshCw, Plus, Users, Search, MessageSquare, X, Trash2, Mic, Square } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useNotifications } from '../context/NotificationContext'
@@ -16,13 +16,17 @@ export default function Chat() {
   const [newMessage, setNewMessage] = useState('')
   const [uploading, setUploading] = useState(false)
   const [showNewChatModal, setShowNewChatModal] = useState(false)
+  const [showChatMobile, setShowChatMobile] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [messageSearchQuery, setMessageSearchQuery] = useState('')
   
   const { unreadPerChannel, clearChannelUnread } = useNotifications()
-  const messagesEndRef = useRef(null)
-  const fileInputRef = useRef(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [fileType, setFileType] = useState('image/*')
-  const [showChatMobile, setShowChatMobile] = useState(false)
   
   const activeChannelInfo = channels.find(c => c.id === activeChannel)
 
@@ -207,6 +211,56 @@ export default function Chat() {
       toast.error('Error enviando mensaje')
     } finally {
       setUploading(false)
+    }
+  }
+
+  // --- NOTAS DE VOZ ---
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      const chunks: Blob[] = []
+
+      recorder.ondataavailable = (e) => chunks.push(e.data)
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/webm' })
+        const file = new File([audioBlob], `voice_note_${Date.now()}.webm`, { type: 'audio/webm' })
+        
+        setUploading(true)
+        try {
+          const fileName = `${Date.now()}.webm`
+          const filePath = `${activeChannel}/${fileName}`
+          const { error: uploadError } = await supabase.storage.from('chat-media').upload(filePath, file)
+          if (uploadError) throw uploadError
+
+          const { data: { publicUrl } } = supabase.storage.from('chat-media').getPublicUrl(filePath)
+          await supabase.from('mensajes').insert([{
+            channel: activeChannel,
+            text_content: '🎤 Nota de voz',
+            sender_id: profile.id,
+            media_url: publicUrl,
+            media_type: 'audio/webm'
+          }])
+        } catch (error) {
+          toast.error('Error al subir nota de voz')
+        } finally {
+          setUploading(false)
+        }
+      }
+
+      recorder.start()
+      setMediaRecorder(recorder)
+      setIsRecording(true)
+    } catch (error) {
+      toast.error('No se pudo acceder al micrófono')
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop()
+      setIsRecording(false)
+      mediaRecorder.stream.getTracks().forEach(track => track.stop())
     }
   }
 
@@ -434,19 +488,33 @@ export default function Chat() {
                 <span className="text-sm text-success">● Staff Online</span>
               </div>
             </div>
-            <button 
-              className="btn-icon btn-ghost" 
-              onClick={handleDeleteChat}
-              title="Borrar chat y multimedia"
-              style={{ color: '#ef4444' }}
-            >
-              <Trash2 size={18} />
-            </button>
+            <div className="flex items-center gap-sm">
+              <div className="search-bar variant-small hide-mobile" style={{ width: '180px' }}>
+                <Search size={14} className="text-muted" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar mensaje..." 
+                  className="search-input" 
+                  value={messageSearchQuery}
+                  onChange={(e) => setMessageSearchQuery(e.target.value)}
+                />
+              </div>
+              <button 
+                className="btn-icon btn-ghost" 
+                onClick={handleDeleteChat}
+                title="Borrar chat y multimedia"
+                style={{ color: '#ef4444' }}
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
           </div>
           
           <div className="messages-container">
-            {messages.map((msg, index) => {
-              const showAvatar = index === 0 || messages[index - 1].sender !== msg.sender
+            {messages
+              .filter(m => m.text?.toLowerCase().includes(messageSearchQuery.toLowerCase()))
+              .map((msg, index, filteredMessages) => {
+                const showAvatar = index === 0 || filteredMessages[index - 1].sender !== msg.sender
               
               return (
                 <div key={msg.id} className={`message-wrapper ${msg.isMe ? 'is-me' : 'is-other'}`}>
@@ -472,6 +540,8 @@ export default function Chat() {
                             <img src={msg.mediaUrl} alt="Media" className="media-preview" onClick={() => window.open(msg.mediaUrl, '_blank')} />
                           ) : msg.mediaType?.startsWith('video/') ? (
                             <video src={msg.mediaUrl} controls className="media-preview" />
+                          ) : msg.mediaType?.startsWith('audio/') ? (
+                            <audio src={msg.mediaUrl} controls className="audio-player" />
                           ) : (
                             <a href={msg.mediaUrl} target="_blank" rel="noreferrer" className="file-attachment">
                               <Paperclip size={16} /> Ver archivo adjunto
@@ -525,6 +595,18 @@ export default function Chat() {
             <button type="button" className="btn-icon btn-ghost text-muted" onClick={() => handleFileClick('video/*')}>
               <Video size={20} />
             </button>
+            
+            <div className="voice-record-container">
+              {isRecording ? (
+                <button type="button" className="btn-icon btn-danger pulse" onClick={stopRecording}>
+                  <Square size={20} fill="currentColor" />
+                </button>
+              ) : (
+                <button type="button" className="btn-icon btn-ghost text-primary" onClick={startRecording}>
+                  <Mic size={20} />
+                </button>
+              )}
+            </div>
             
             <input 
               type="text" 

@@ -3,9 +3,27 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
 import { 
-  CheckCircle, Clock, 
-  History, User, Check, X, ChevronLeft, ChevronRight,
-  Download, FileText, FileSpreadsheet, Edit3, Trash2
+  Plus, 
+  Search, 
+  MapPin, 
+  Calendar as CalendarIcon, 
+  ChevronLeft, 
+  ChevronRight, 
+  CheckCircle, 
+  Clock, 
+  Download, 
+  Printer, 
+  ExternalLink,
+  MessageSquare,
+  FileText,
+  FileSpreadsheet,
+  X,
+  AlertTriangle,
+  History,
+  User,
+  Edit3,
+  Trash2,
+  Check
 } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -13,6 +31,7 @@ import { Calendar, momentLocalizer, Views } from 'react-big-calendar'
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop'
 import moment from 'moment'
 import 'moment/locale/es'
+import confetti from 'canvas-confetti'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'
 
@@ -42,8 +61,9 @@ export default function Planificacion() {
   const [view, setView] = useState(Views.MONTH)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showExportMenu, setShowExportMenu] = useState(false)
-  const [creatingTask, setCreatingTask] = useState(null) // Para creación rápida { fecha }
-  const [newForm, setNewForm] = useState({ titulo: '', descripcion: '', frecuencia: 'eventual', tipo: 'mantenimiento' })
+  const [creatingTask, setCreatingTask] = useState(null)
+  const [newForm, setNewForm] = useState({ titulo: '', descripcion: '', frecuencia: 'eventual', tipo: 'mantenimiento', foto_url: '' })
+  const [uploading, setUploading] = useState(false)
 
   // Formatear tareas para el calendario
   const events = tasks.map(t => ({
@@ -118,7 +138,8 @@ export default function Planificacion() {
       titulo: '', 
       descripcion: '', 
       frecuencia: 'eventual',
-      tipo: 'mantenimiento'
+      tipo: 'mantenimiento',
+      foto_url: ''
     })
   }
 
@@ -156,12 +177,18 @@ export default function Planificacion() {
 
   const fetchTasks = async () => {
     try {
+      const cached = localStorage.getItem('v-suite-tasks')
+      if (cached && loading) {
+        setTasks(JSON.parse(cached))
+      }
+
       const { data, error } = await supabase
         .from('mantenimiento_preventivo')
         .select('*')
-        .order('proxima_fecha')
+        .order('proxima_fecha', { ascending: true })
       if (error) throw error
-      setTasks(data)
+      setTasks(data || [])
+      localStorage.setItem('v-suite-tasks', JSON.stringify(data || []))
     } catch (error) {
       console.error('Error fetching maintenance:', error)
     }
@@ -233,6 +260,15 @@ export default function Planificacion() {
         .eq('id', completingTask.id)
       if (taskError) throw taskError
       setMsg({ type: 'success', text: `Tarea "${completingTask.titulo}" completada. Próxima revisión: ${nextDate}` })
+      
+      // 🎉 EFECTO CONFETTI
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#6366f1', '#10b981', '#f59e0b']
+      })
+
       setCompletingTask(null)
       setSelectedElements([])
       setNotes('')
@@ -323,6 +359,27 @@ export default function Planificacion() {
     link.href = URL.createObjectURL(blob)
     link.download = `Mantenimiento_VSuite_${new Date().toISOString().split('T')[0]}.csv`
     link.click()
+    setShowExportMenu(false)
+  }
+
+  const exportToICS = () => {
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//V-Suite//HotelOps//ES\n"
+    tasks.forEach(task => {
+      const start = moment(task.proxima_fecha).format('YYYYMMDD')
+      icsContent += "BEGIN:VEVENT\n"
+      icsContent += `SUMMARY:${task.titulo}\n`
+      icsContent += `DTSTART;VALUE=DATE:${start}\n`
+      icsContent += `DESCRIPTION:${task.descripcion || ''}\n`
+      icsContent += "END:VEVENT\n"
+    })
+    icsContent += "END:VCALENDAR"
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.setAttribute('download', `Calendario_Hotel_${moment().format('YYYY-MM-DD')}.ics`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
     setShowExportMenu(false)
   }
 
@@ -421,12 +478,15 @@ export default function Planificacion() {
             <span>Exportar</span>
           </button>
           {showExportMenu && (
-            <div className="export-dropdown">
-              <button className="export-item" onClick={exportToCSV}>
-                <FileSpreadsheet size={16} style={{ color: '#10b981' }} /> Descargar CSV
+            <div className="absolute right-0 mt-sm w-48 glass-card border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 animate-fade-in" style={{ top: '100%' }}>
+              <button className="w-full text-left px-md py-sm hover:bg-white/5 flex items-center gap-sm transition-colors text-sm" onClick={exportToCSV}>
+                <FileSpreadsheet size={16} className="text-success" /> Descargar CSV
               </button>
-              <button className="export-item" onClick={exportToPDF}>
-                <FileText size={16} style={{ color: '#ef4444' }} /> Descargar PDF
+              <button className="w-full text-left px-md py-sm hover:bg-white/5 flex items-center gap-sm transition-colors text-sm border-t border-white/5" onClick={exportToPDF}>
+                <FileText size={16} className="text-danger" /> Descargar PDF
+              </button>
+              <button className="w-full text-left px-md py-sm hover:bg-white/5 flex items-center gap-sm transition-colors text-sm border-t border-white/5" onClick={exportToICS}>
+                <CalendarIcon size={16} className="text-accent" /> Sincronizar (.ics)
               </button>
             </div>
           )}
@@ -455,6 +515,7 @@ export default function Planificacion() {
             <button className={`btn btn-xs ${view === Views.MONTH ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView(Views.MONTH)}>Mes</button>
             <button className={`btn btn-xs ${view === Views.WEEK ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView(Views.WEEK)}>Semana</button>
             <button className={`btn btn-xs ${view === Views.DAY ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView(Views.DAY)}>Día</button>
+            <button className={`btn btn-xs ${view === Views.AGENDA ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView(Views.AGENDA)}>Agenda</button>
           </div>
         </div>
 
@@ -508,7 +569,12 @@ export default function Planificacion() {
             ) : (
               tasks.map(task => (
                 <div key={task.id} className={`glass-card p-lg ${isOverdue(task.proxima_fecha) ? 'border-l-4 border-danger' : 'border-l-4 border-accent'}`}>
-                  <div className="flex justify-between items-start">
+                  <div className="flex gap-md items-start">
+                    {task.foto_url && (
+                      <div className="task-thumbnail" style={{ flexShrink: 0 }}>
+                        <img src={task.foto_url} alt={task.titulo} className="w-16 h-16 rounded-md object-cover border border-white/10" />
+                      </div>
+                    )}
                     <div style={{ flex: 1 }}>
                       <div className="flex items-center gap-sm mb-xs">
                         <h3 className="font-bold">{task.titulo}</h3>
@@ -635,6 +701,36 @@ export default function Planificacion() {
                   <textarea className="input" rows={3} value={newForm.descripcion}
                     placeholder="Detalles adicionales sobre el trabajo..."
                     onChange={e => setNewForm({...newForm, descripcion: e.target.value})}></textarea>
+                </div>
+                <div className="input-group mb-md">
+                  <label className="input-label">Foto Adjunta (Opcional)</label>
+                  <input type="file" accept="image/*" className="input" 
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      setUploading(true)
+                      try {
+                        const fileExt = file.name.split('.').pop()
+                        const fileName = `${Math.random()}.${fileExt}`
+                        const filePath = `calendar-assets/${fileName}`
+                        const { error: uploadError } = await supabase.storage.from('maintenance_assets').upload(filePath, file)
+                        if (uploadError) throw uploadError
+                        const { data: { publicUrl } } = supabase.storage.from('maintenance_assets').getPublicUrl(filePath)
+                        setNewForm({...newForm, foto_url: publicUrl})
+                        toast.success('Foto subida correctamente')
+                      } catch (error: any) {
+                        toast.error('Error al subir: ' + error.message)
+                      } finally {
+                        setUploading(false)
+                      }
+                    }} />
+                  {newForm.foto_url && (
+                    <div className="mt-sm relative w-full h-32 rounded-lg overflow-hidden border border-white/10">
+                      <img src={newForm.foto_url} alt="Preview" className="w-full h-full object-cover" />
+                      <button type="button" className="absolute top-2 right-2 bg-danger p-1 rounded-full text-white"
+                        onClick={() => setNewForm({...newForm, foto_url: ''})}><X size={12} /></button>
+                    </div>
+                  )}
                 </div>
                 <div className="input-group">
                   <label className="input-label">Frecuencia</label>
@@ -859,6 +955,39 @@ export default function Planificacion() {
         }
         .v-calendar-container .rbc-addons-dnd-dragged-event {
           opacity: 0.5;
+        }
+
+        /* Agenda View Styling */
+        .v-calendar-container .rbc-agenda-view {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .v-calendar-container .rbc-agenda-table {
+          color: var(--color-text-primary);
+        }
+        .v-calendar-container .rbc-agenda-table thead > tr > th {
+          background: rgba(99, 102, 241, 0.1);
+          color: var(--color-accent);
+          text-transform: uppercase;
+          font-size: 0.75rem;
+          padding: 12px;
+          border-bottom: 2px solid rgba(99, 102, 241, 0.2);
+        }
+        .v-calendar-container .rbc-agenda-date-cell, 
+        .v-calendar-container .rbc-agenda-time-cell {
+          font-weight: 700;
+          color: var(--color-text-muted);
+          border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .v-calendar-container .rbc-agenda-event-cell {
+          padding: 10px;
+        }
+        .v-calendar-container .rbc-agenda-empty {
+          padding: 40px;
+          text-align: center;
+          color: var(--color-text-muted);
+          font-style: italic;
         }
       `}</style>
     </div>

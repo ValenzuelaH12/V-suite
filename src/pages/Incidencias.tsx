@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Filter, Search, MoreVertical, MapPin, Clock, X, CheckCircle, Image as ImageIcon, Video, Paperclip, MessageSquare, History, AlertCircle, RefreshCw, Download, FileText, FileSpreadsheet, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -8,10 +9,11 @@ import autoTable from 'jspdf-autotable'
 
 export default function Incidencias() {
   const { user, profile } = useAuth()
+  const navigate = useNavigate()
   const toast = useToast()
   const [activeTab, setActiveTab] = useState('activas')
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [newIncident, setNewIncident] = useState({ title: '', location: '', priority: 'medium', descripcion: '', media_urls: [] })
+  const [newIncident, setNewIncident] = useState({ title: '', location: '', priority: 'medium', room: '', descripcion: '', media_urls: [] })
   const [incidents, setIncidents] = useState([])
   const [zonas, setZonas] = useState([])
   const [habitaciones, setHabitaciones] = useState([])
@@ -61,6 +63,12 @@ export default function Incidencias() {
 
   const fetchIncidents = async () => {
     try {
+      // Cargar desde caché offline primero para rapidez
+      const cached = localStorage.getItem('v-suite-incidents')
+      if (cached && loading) {
+        setIncidents(JSON.parse(cached))
+      }
+
       const { data, error } = await supabase
         .from('incidencias')
         .select(`
@@ -91,6 +99,7 @@ export default function Incidencias() {
       }))
       
       setIncidents(formattedData)
+      localStorage.setItem('v-suite-incidents', JSON.stringify(formattedData))
     } catch (error) {
       console.error('Error fetching incidents:', error)
     } finally {
@@ -108,7 +117,7 @@ export default function Incidencias() {
       : newIncident.location
 
     try {
-      const { error } = await supabase
+      const { data: incidentData, error: incidentError } = await supabase
         .from('incidencias')
         .insert([{
           title: newIncident.title,
@@ -119,14 +128,28 @@ export default function Incidencias() {
           media_urls: newIncident.media_urls || [],
           reporter_id: user.id
         }])
+        .select()
+        .single()
 
-      if (error) throw error
+      if (incidentError) throw incidentError
       
+      // Crear Canal de Chat automático para la incidencia
+      if (incidentData) {
+        await supabase.from('canales').insert([{
+          id: `inc_${incidentData.id}`,
+          nombre: `Incidencia: ${incidentData.title}`,
+          tipo: 'incidencia',
+          descripcion: `Hilo de coordinación para el reporte #${incidentData.id} en ${finalLocation}`
+        }])
+      }
+
       fetchIncidents()
       setIsModalOpen(false)
       setNewIncident({ title: '', location: '', priority: 'medium', room: '', descripcion: '', media_urls: [] })
-    } catch (error) {
+      toast.success('Incidencia reportada y canal de chat creado.')
+    } catch (error: any) {
       console.error('Error creating incident:', error)
+      toast.error('Error al crear incidencia: ' + error.message)
     }
   }
 
@@ -743,6 +766,18 @@ export default function Incidencias() {
                   {selectedIncident.descripcion || "No hay descripción adicional para esta incidencia."}
                 </div>
               </section>
+
+              {/* Acceso a Chat de la Incidencia */}
+              <button 
+                className="btn btn-primary w-full mt-xl flex items-center justify-center gap-sm"
+                onClick={() => {
+                  // Navegar al chat con el canal de la incidencia seleccionado
+                  navigate(`/chat?channel=inc_${selectedIncident.id}`)
+                }}
+              >
+                <MessageSquare size={18} />
+                <span>Abrir Chat de Coordinación</span>
+              </button>
 
               {/* Botón Eliminar */}
               <div className="mt-xl pt-lg border-t border-white/5">
