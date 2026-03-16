@@ -24,8 +24,27 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [permission])
 
-  const sendNotification = (title: string, options?: NotificationOptions) => {
-    if (permission === 'granted') {
+  const sendNotification = async (title: string, options?: NotificationOptions) => {
+    // Sonido siempre
+    notificationSound.current.play().catch(() => {})
+
+    if (permission !== 'granted') return
+
+    try {
+      // Método preferido para PWA: Service Worker
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready
+        if (registration) {
+          await registration.showNotification(title, {
+            icon: '/pwa-192x192.png',
+            badge: '/favicon.svg',
+            ...options
+          })
+          return
+        }
+      }
+
+      // Fallback: Constructor nativo (puede fallar en algunos móviles con "Illegal constructor")
       const notif = new Notification(title, {
         icon: '/pwa-192x192.png',
         badge: '/favicon.svg',
@@ -36,8 +55,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         window.focus()
         notif.close()
       }
+    } catch (err) {
+      console.warn('Error al disparar notificación nativa:', err)
+      // El Toast ya se dispara por separado, así que manejamos el fallo silenciosamente aquí
     }
-    notificationSound.current.play().catch(() => {})
   }
 
   useEffect(() => {
