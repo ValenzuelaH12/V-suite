@@ -1,12 +1,15 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
+import { useToast } from '../components/Toast'
 
 const NotificationContext = createContext<any>(null)
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth()
+  const toast = useToast()
   const [unreadPerChannel, setUnreadPerChannel] = useState<Record<string, number>>({})
+  // ... rest of the file
   const [chatNotifications, setChatNotifications] = useState<any[]>([])
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
@@ -78,17 +81,24 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         schema: 'public',
         table: 'incidencias',
       }, (payload) => {
+        console.log('🚨 Nueva incidencia detectada en tiempo real:', payload.new)
         const inc = payload.new
         if (!inc) return
 
-        if (inc.priority === 'high') {
-          sendNotification('🚨 INCIDENCIA URGENTE', {
+        if (inc.priority === 'high' || inc.title.includes('V-NEXUS')) {
+          sendNotification('🚨 ALERTA V-SUITE', {
             body: `${inc.title} en ${inc.location}`,
-            tag: 'urgent-incident'
+            tag: 'urgent-incident',
+            requireInteraction: true
           })
+          
+          // Toast visual interno
+          toast.info(`[V-NEXUS] ${inc.title} en ${inc.location}`)
         }
       })
-      .subscribe()
+      .subscribe((status) => {
+        console.log('📡 Estado de suscripción global:', status)
+      })
 
     return () => {
       supabase.removeChannel(channel)

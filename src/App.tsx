@@ -105,12 +105,12 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <NotificationProvider>
-          <ToastProvider>
+        <ToastProvider>
+          <NotificationProvider>
             <SyncManager />
             <AppRoutes />
-          </ToastProvider>
-        </NotificationProvider>
+          </NotificationProvider>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   )
