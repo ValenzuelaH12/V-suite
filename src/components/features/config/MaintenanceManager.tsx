@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ClipboardList, Plus, Trash2, Calendar, Activity, CheckCircle } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Calendar, Activity, CheckCircle, Clock, Layers, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { configService } from '../../../services/configService';
 import { Card } from '../../ui/Card';
@@ -37,6 +37,15 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
 
   const [newTemplate, setNewTemplate] = useState({ nombre: '', items: [] as string[], hotel_id: activeHotelId || '' });
   const [newTemplateItem, setNewTemplateItem] = useState('');
+
+  const handleAddTemplateItem = () => {
+    if (!newTemplateItem.trim()) return;
+    setNewTemplate(prev => ({
+      ...prev,
+      items: [...prev.items, newTemplateItem.trim()]
+    }));
+    setNewTemplateItem('');
+  };
 
   // Sync hotel_id when activeHotelId changes
   React.useEffect(() => {
@@ -546,102 +555,6 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
           border-radius: 14px; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;
         }
         .btn-premium-secondary:hover { background: rgba(255,255,255,0.08); color: white; }
-      `}</style>
-    </div>
-  );
-};
-
-      {/* Modal: Nueva Plantilla */}
-      <Modal
-        isOpen={isAddingTemplate}
-        onClose={() => setIsAddingTemplate(false)}
-        title="Nueva Plantilla de Revisión"
-      >
-        <form onSubmit={handleAddTemplate} className="flex flex-col gap-md">
-          <div className="form-group">
-            <label>Nombre de la Plantilla</label>
-            <input 
-              type="text" 
-              required 
-              value={newTemplate.nombre}
-              onChange={e => setNewTemplate({...newTemplate, nombre: e.target.value})}
-              placeholder="Ej: Checklist Habitaciones"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Añadir Elementos de Revisión</label>
-            <div className="flex gap-sm">
-              <input 
-                type="text" 
-                value={newTemplateItem}
-                onChange={e => setNewTemplateItem(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (newTemplateItem.trim()) {
-                      setNewTemplate({...newTemplate, items: [...newTemplate.items, newTemplateItem.trim()]});
-                      setNewTemplateItem('');
-                    }
-                  }
-                }}
-                placeholder="Escribe y presiona Enter..."
-              />
-              <Button 
-                type="button" 
-                size="sm" 
-                onClick={() => {
-                  if (newTemplateItem.trim()) {
-                    setNewTemplate({...newTemplate, items: [...newTemplate.items, newTemplateItem.trim()]});
-                    setNewTemplateItem('');
-                  }
-                }}
-              >
-                <Plus size={16} />
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-xs py-sm min-h-[40px]">
-            {newTemplate.items.map((item, i) => (
-              <Badge key={i} variant="neutral" className="flex items-center gap-2">
-                {item}
-                <button 
-                  type="button"
-                  onClick={() => setNewTemplate({...newTemplate, items: newTemplate.items.filter((_, idx) => idx !== i)})}
-                  className="hover:text-danger"
-                >
-                  <Trash2 size={10} />
-                </button>
-              </Badge>
-            ))}
-          </div>
-
-          <div className="modal-footer px-none pt-md">
-            <Button type="button" variant="ghost" onClick={() => setIsAddingTemplate(false)}>Cancelar</Button>
-            <Button type="submit" variant="primary" disabled={newTemplate.items.length === 0}>Guardar Plantilla</Button>
-          </div>
-        </form>
-      </Modal>
-
-      <style>{`
-        .maintenance-card, .template-card {
-          transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
-        }
-        .maintenance-card:hover, .template-card:hover {
-          transform: translateY(-8px);
-          box-shadow: 0 20px 40px -10px rgba(99, 102, 241, 0.15);
-        }
-        .hover-glow:hover {
-          box-shadow: 0 0 30px -5px rgba(99, 102, 241, 0.2);
-        }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
       `}</style>
     </div>
   );
