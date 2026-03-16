@@ -572,7 +572,7 @@ export default function Incidencias() {
             </div>
             <form onSubmit={handleCreateIncident}>
               <div className="modal-body">
-                <div className="grid-2 gap-md mb-md">
+                <div className="grid-2 mb-sm">
                   <div className="input-group">
                     <label className="input-label">Tipo de Incidencia</label>
                     <select 
@@ -601,7 +601,7 @@ export default function Incidencias() {
                   </div>
                 </div>
 
-                <div className="grid-2 gap-md mb-md">
+                <div className="grid-2 mb-sm">
                   <div className="input-group">
                     <label className="input-label">Zona / Ubicación</label>
                     <select 
@@ -634,11 +634,11 @@ export default function Incidencias() {
                   </div>
                 </div>
 
-                <div className="input-group mb-md">
+                <div className="input-group mb-sm">
                   <label className="input-label">Descripción del Problema</label>
                   <textarea 
                     className="input"
-                    rows={2} /* Reducido de 3 a 2 */
+                    rows={2}
                     placeholder="Detalla qué sucede..."
                     value={newIncident.descripcion || ''}
                     onChange={e => setNewIncident({...newIncident, descripcion: e.target.value})}
