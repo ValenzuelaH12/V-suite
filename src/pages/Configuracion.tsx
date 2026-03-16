@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { 
   Users, UserPlus, Shield, Hotel, Plus, X, RefreshCw, Trash2, MessageSquare, Activity, ClipboardList,
-  LayoutDashboard, AlertTriangle, Calendar, Settings, Check, Package
+  LayoutDashboard, AlertTriangle, Calendar, Settings, Check, Package, QrCode, Smartphone
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -417,7 +417,7 @@ export default function Configuracion() {
           <button 
             className="btn btn-secondary" 
             onClick={() => {
-              const tabOrder = ['usuarios', 'zonas', 'tipos', 'canales', 'contadores', 'mantenimiento']
+              const tabOrder = ['usuarios', 'zonas', 'tipos', 'canales', 'contadores', 'mantenimiento', 'v-nexus']
               const currentIndex = tabOrder.indexOf(activeTab)
               const nextIndex = (currentIndex + 1) % tabOrder.length
               setActiveTab(tabOrder[nextIndex])
@@ -429,7 +429,7 @@ export default function Configuracion() {
         </div>
       </div>
 
-      <div className="tabs-container mb-xl border-b">
+      <div className="tabs-container mb-xl border-b overflow-x-auto">
         <button 
           className={`tab-btn ${activeTab === 'usuarios' ? 'active' : ''}`}
           onClick={() => setActiveTab('usuarios')}
@@ -465,6 +465,12 @@ export default function Configuracion() {
           onClick={() => setActiveTab('mantenimiento')}
         >
           <ClipboardList size={18} /> Mantenimiento
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'v-nexus' ? 'active' : ''}`}
+          onClick={() => setActiveTab('v-nexus')}
+        >
+          <QrCode size={18} /> V-Nexus (QRs)
         </button>
       </div>
 
@@ -724,6 +730,98 @@ export default function Configuracion() {
                         <td className="text-center"><button className="btn-icon btn-ghost text-danger" onClick={() => handleDelete('mantenimiento_preventivo', m.id, m.titulo)}><Trash2 size={16} /></button></td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* V-Nexus Tab Content */}
+        {activeTab === 'v-nexus' && (
+          <div className="glass-card table-panel animate-fade-in">
+            <div className="panel-header border-b">
+              <div className="flex items-center gap-md">
+                <QrCode size={20} className="text-accent" />
+                <h3>V-Nexus: Portal de Huéspedes</h3>
+              </div>
+              <div className="badge badge-success">Portal Activo</div>
+            </div>
+            
+            <div className="p-lg border-b bg-accent/5">
+              <div className="flex items-center gap-lg">
+                <div className="info-icon text-accent bg-accent/10 p-md rounded-xl">
+                  <Smartphone size={32} />
+                </div>
+                <div>
+                  <h4 className="mb-xs text-lg">¿Cómo funciona V-Nexus?</h4>
+                  <p className="text-sm text-muted max-w-2xl">
+                    Imprima estos códigos QR y colóquelos de forma visible en las habitaciones (ej: detrás de la puerta o en la mesita). 
+                    El huésped solo tiene que escanearlo para reportar una incidencia o solicitar un servicio al instante, 
+                    <strong> sin necesidad de descargar una app o iniciar sesión</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel-body p-none">
+              <div className="table-responsive">
+                <table className="config-table">
+                  <thead>
+                    <tr>
+                      <th>Habitación</th>
+                      <th>Zona</th>
+                      <th>Enlace Directo</th>
+                      <th className="text-center">QR (Previsualización)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {habitaciones.map(h => {
+                      const zonaName = zonas.find(z => z.id === h.zona_id)?.nombre || 'General'
+                      const portalUrl = `${window.location.origin}/guest/${h.nombre}`
+                      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(portalUrl)}`
+                      
+                      return (
+                        <tr key={h.id}>
+                          <td><strong>Hab. {h.nombre}</strong></td>
+                          <td className="text-muted">{zonaName}</td>
+                          <td>
+                            <div className="flex flex-col gap-xs">
+                              <span className="text-xs font-mono select-all bg-muted/30 p-xs rounded border border-divider">
+                                {portalUrl}
+                              </span>
+                              <a 
+                                href={qrUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="text-xs text-accent font-bold hover:underline flex items-center gap-xs"
+                              >
+                                Descargar Imagen QR <RefreshCw size={10} />
+                              </a>
+                            </div>
+                          </td>
+                          <td className="py-md text-center">
+                            <div className="qr-preview-container inline-block p-xs bg-white border rounded-lg shadow-sm">
+                              <img 
+                                src={qrUrl} 
+                                alt={`QR Hab ${h.nombre}`} 
+                                className="block"
+                                width="64"
+                                height="64"
+                                loading="lazy"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {habitaciones.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="text-center py-xl text-muted">
+                          No hay habitaciones configuradas aún. Vaya a la pestaña "Zonas" para agregar habitaciones.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -11,6 +11,7 @@ import Configuracion from './pages/Configuracion'
 import Lecturas from './pages/Lecturas'
 import Planificacion from './pages/Planificacion'
 import Inventory from './pages/Inventory'
+import GuestPortal from './pages/GuestPortal'
 
 // Componente para proteger rutas
 const ProtectedRoute = ({ children }) => {
@@ -69,6 +70,10 @@ function AppRoutes() {
         path="/login" 
         element={user ? <Navigate to="/" /> : <Login />} 
       />
+      
+      {/* Rutas Públicas para Huéspedes */}
+      <Route path="/guest" element={<GuestPortal />} />
+      <Route path="/guest/:room" element={<GuestPortal />} />
       
       <Route path="/" element={
         <ProtectedRoute>
