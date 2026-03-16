@@ -42,6 +42,8 @@ export default function Planificacion() {
   const [view, setView] = useState(Views.MONTH)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [creatingTask, setCreatingTask] = useState(null) // Para creación rápida { fecha }
+  const [newForm, setNewForm] = useState({ titulo: '', descripcion: '', frecuencia: 'eventual', tipo: 'mantenimiento' })
 
   // Formatear tareas para el calendario
   const events = tasks.map(t => ({
@@ -55,11 +57,31 @@ export default function Planificacion() {
 
   const eventStyleGetter = (event) => {
     const overdue = isOverdue(event.resource.proxima_fecha)
+    const type = event.resource.tipo || 'mantenimiento'
+    
+    let baseColor = 'rgba(99, 102, 241, 0.2)'
+    let textColor = '#a5b4fc'
+    let borderColor = 'rgba(99, 102, 241, 0.4)'
+
+    if (overdue) {
+      baseColor = 'rgba(239, 68, 68, 0.2)'
+      textColor = '#fca5a5'
+      borderColor = 'rgba(239, 68, 68, 0.4)'
+    } else if (type === 'evento') {
+      baseColor = 'rgba(16, 185, 129, 0.2)'
+      textColor = '#6ee7b7'
+      borderColor = 'rgba(16, 185, 129, 0.4)'
+    } else if (type === 'revision') {
+      baseColor = 'rgba(168, 85, 247, 0.2)'
+      textColor = '#d8b4fe'
+      borderColor = 'rgba(168, 85, 247, 0.4)'
+    }
+
     return {
       style: {
-        backgroundColor: overdue ? 'rgba(239, 68, 68, 0.2)' : 'rgba(99, 102, 241, 0.2)',
-        color: overdue ? '#fca5a5' : '#a5b4fc',
-        border: overdue ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(99, 102, 241, 0.4)',
+        backgroundColor: baseColor,
+        color: textColor,
+        border: borderColor,
         borderRadius: '6px',
         fontSize: '0.75rem',
         fontWeight: '600',
@@ -86,6 +108,43 @@ export default function Planificacion() {
       fetchTasks()
     } catch (error: any) {
       toast.error('Error al reprogramar: ' + error.message)
+    }
+  }
+
+  const handleSelectSlot = ({ start }) => {
+    const dateStr = moment(start).format('YYYY-MM-DD')
+    setCreatingTask({ fecha: dateStr })
+    setNewForm({ 
+      titulo: '', 
+      descripcion: '', 
+      frecuencia: 'eventual',
+      tipo: 'mantenimiento'
+    })
+  }
+
+  const handleCreateTask = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('mantenimiento_preventivo')
+        .insert([{
+          titulo: newForm.titulo,
+          descripcion: newForm.descripcion,
+          frecuencia: newForm.frecuencia,
+          proxima_fecha: creatingTask.fecha,
+          tipo: newForm.tipo // Asumimos que la columna existe o se guardará en metadata si el schema es flexible
+        }])
+
+      if (error) throw error
+      
+      toast.success('Nueva tarea creada en el calendario')
+      setCreatingTask(null)
+      fetchTasks()
+    } catch (error: any) {
+      toast.error('Error al crear: ' + error.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -422,6 +481,7 @@ export default function Planificacion() {
             selectable
             resizable
             onEventDrop={onEventDrop}
+            onSelectSlot={handleSelectSlot}
             onSelectEvent={(e) => setCompletingTask(e.resource)}
             eventPropGetter={eventStyleGetter}
             view={view}
@@ -540,6 +600,66 @@ export default function Planificacion() {
         </section>
       </div>
 
+      {/* MODAL CREAR TAREA (Desde Calendario) */}
+      {creatingTask && (
+        <div className="modal-overlay" onClick={() => setCreatingTask(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Añadir a Calendario ({moment(creatingTask.fecha).format('DD/MM')})</h2>
+              <button className="btn-icon btn-ghost" onClick={() => setCreatingTask(null)}><X size={20} /></button>
+            </div>
+            <form onSubmit={handleCreateTask}>
+              <div className="modal-body">
+                <div className="input-group mb-md">
+                  <label className="input-label">Título del Trabajo / Evento</label>
+                  <input className="input" type="text" value={newForm.titulo} required autoFocus
+                    placeholder="Ej: Revisión Calderas, Evento Corporativo..."
+                    onChange={e => setNewForm({...newForm, titulo: e.target.value})} />
+                </div>
+                <div className="input-group mb-md">
+                  <label className="input-label">Tipo de Actividad</label>
+                  <div className="flex gap-sm">
+                    <button type="button" 
+                      className={`btn btn-sm flex-1 ${newForm.tipo === 'mantenimiento' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setNewForm({...newForm, tipo: 'mantenimiento'})}>Mantenimiento</button>
+                    <button type="button" 
+                      className={`btn btn-sm flex-1 ${newForm.tipo === 'evento' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setNewForm({...newForm, tipo: 'evento'})}>Evento</button>
+                    <button type="button" 
+                      className={`btn btn-sm flex-1 ${newForm.tipo === 'revision' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setNewForm({...newForm, tipo: 'revision'})}>Revisión</button>
+                  </div>
+                </div>
+                <div className="input-group mb-md">
+                  <label className="input-label">Descripción / Detalles</label>
+                  <textarea className="input" rows={3} value={newForm.descripcion}
+                    placeholder="Detalles adicionales sobre el trabajo..."
+                    onChange={e => setNewForm({...newForm, descripcion: e.target.value})}></textarea>
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Frecuencia</label>
+                  <select className="select" value={newForm.frecuencia}
+                    onChange={e => setNewForm({...newForm, frecuencia: e.target.value})}>
+                    <option value="eventual">Evento Único (Sin frecuencia)</option>
+                    <option value="diaria">Diaria</option>
+                    <option value="semanal">Semanal</option>
+                    <option value="mensual">Mensual</option>
+                    <option value="trimestral">Trimestral</option>
+                    <option value="anual">Anual</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-ghost" onClick={() => setCreatingTask(null)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary ml-md" disabled={loading}>
+                  {loading ? 'Creando...' : 'Guardar en Calendario'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL COMPLETAR TAREA */}
       {completingTask && (
         <div className="modal-overlay" onClick={() => setCompletingTask(null)}>
@@ -556,7 +676,7 @@ export default function Planificacion() {
                 </div>
                 <div className="input-group">
                   <label className="input-label">Notas o Comentarios de la Revisión</label>
-                  <textarea className="input" rows="3" placeholder="Escribe si encontraste algo inusual..."
+                  <textarea className="input" rows={3} placeholder="Escribe si encontraste algo inusual..."
                     value={notes} onChange={e => setNotes(e.target.value)}></textarea>
                 </div>
                 <div className="mt-lg">
@@ -612,7 +732,7 @@ export default function Planificacion() {
                 </div>
                 <div className="input-group mb-md">
                   <label className="input-label">Descripción</label>
-                  <textarea className="input" rows="3" value={editForm.descripcion}
+                  <textarea className="input" rows={3} value={editForm.descripcion}
                     onChange={e => setEditForm({...editForm, descripcion: e.target.value})}></textarea>
                 </div>
                 <div className="input-group mb-md">
