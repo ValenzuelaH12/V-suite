@@ -206,6 +206,13 @@ input, textarea, select {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  min-height: 44px; /* Touch target size standardized */
+}
+
+@media (max-width: 768px) {
+  .btn {
+    min-height: 48px;
+  }
 }
 
 .btn::after {

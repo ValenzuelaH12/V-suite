@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import MobileNav from './MobileNav'
+import QuickActions from './QuickActions'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 
@@ -36,6 +38,9 @@ export default function Layout() {
         </main>
       </div>
 
+      <MobileNav />
+      <QuickActions />
+
       {isSidebarOpen && (
         <div className="sidebar-overlay mobile-only" onClick={closeSidebar}></div>
       )}
@@ -68,7 +73,7 @@ export default function Layout() {
             margin-left: 0;
           }
           .main-content {
-            padding: calc(var(--header-height) + var(--spacing-md)) var(--spacing-md) var(--spacing-md);
+            padding: calc(var(--header-height) + var(--spacing-md)) var(--spacing-md) calc(var(--spacing-md) + 80px);
           }
         }
 
