@@ -55,17 +55,6 @@ export default function GuestPortal() {
         throw error
       }
 
-      // Crear hilo de chat automático si tenemos el ID (puede fallar el select por RLS)
-      const incident = incidentData?.[0]
-      if (incident) {
-        const { error: chatError } = await supabase.from('canales').insert([{
-          id: `inc_${incident.id}`,
-          nombre: `Huésped: Hab ${room || '?' }`,
-          descripcion: `Atención directa al huésped en ${finalLocation}`
-        }])
-        if (chatError) console.error('Error creando canal de chat:', chatError)
-      }
-
       setSubmitted(true)
       toast.success('Solicitud enviada. En breve le atenderemos.')
     } catch (error) {

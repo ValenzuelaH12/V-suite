@@ -137,18 +137,6 @@ export default function Incidencias() {
 
       if (incidentError) throw incidentError
       
-      // Crear Canal de Chat automático para la incidencia
-      if (incidentData) {
-        const canalPayload: any = {
-          id: `inc_${incidentData.id}`,
-          nombre: `Incidencia: ${incidentData.title}`,
-          descripcion: `Hilo de coordinación para el reporte #${incidentData.id} en ${finalLocation}`
-        }
-        if (activeHotelId) canalPayload.hotel_id = activeHotelId;
-        
-        await supabase.from('canales').insert([canalPayload])
-      }
-
       toast.success('Incidencia reportada correctamente')
       fetchIncidents()
       setIsModalOpen(false)
