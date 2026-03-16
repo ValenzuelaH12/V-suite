@@ -46,6 +46,10 @@ export default function Configuracion() {
   const [selectedZona, setSelectedZona] = useState(null)
   const [msg, setMsg] = useState({ type: '', text: '' })
   
+  // V-Nexus Filtering States
+  const [activeFloor, setActiveFloor] = useState('1')
+  const [selectedNexusZona, setSelectedNexusZona] = useState('all')
+  const [nexusSearchQuery, setNexusSearchQuery] = useState('')
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
@@ -100,6 +104,18 @@ export default function Configuracion() {
     ])
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (activeTab === 'v-nexus' && habitaciones.length > 0 && activeFloor === '1') {
+      const floors = Array.from(new Set(habitaciones.map(h => {
+        const match = h.nombre.match(/^\d/);
+        return match ? match[0] : 'Otros';
+      }))).sort();
+      if (floors.length > 0 && !floors.includes('1')) {
+        setActiveFloor(floors[0]);
+      }
+    }
+  }, [activeTab, habitaciones])
 
   const fetchUsers = async (t?: any) => {
     try {
@@ -171,7 +187,7 @@ export default function Configuracion() {
     } catch (error) { console.error(error) }
   }
 
-  const fetchActivos = async () => {
+  const fetchActivos = async (t?: any) => {
     try {
       const { data, error } = await supabase.from('activos').select('*').order('nombre')
       if (error) throw error
@@ -1488,126 +1504,238 @@ export default function Configuracion() {
 
         {/* V-Nexus Tab Content */}
         {activeTab === 'v-nexus' && (
-          <div className="glass-card table-panel animate-fade-in">
-            <div className="panel-header border-b">
-              <div className="flex items-center gap-md">
-                <QrCode size={20} className="text-accent" />
-                <h3>V-Nexus: Portal de Huéspedes</h3>
-              </div>
-              <div className="badge badge-success">Portal Activo</div>
-            </div>
-            
-            <div className="p-lg border-b bg-accent/5">
-              <div className="flex items-center gap-lg">
-                <div className="info-icon text-accent bg-accent/10 p-md rounded-xl">
-                  <Smartphone size={32} />
+          <div className="nexus-container animate-fade-in">
+            {/* Header V-Nexus */}
+            <div className="glass-card nexus-header-card mb-lg overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full -mr-32 -mt-32"></div>
+              <div className="panel-header border-b p-xl relative z-10" style={{borderBottom: '1px solid rgba(255, 255, 255, 0.05)'}}>
+                <div className="flex justify-between items-center w-full">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                      <Smartphone size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black tracking-tight text-white">V-Nexus: Portal Digital</h3>
+                      <p className="text-sm text-muted">Gestión de QRs por planta y zona</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-md">
+                     <div className="nexus-search relative">
+                       <input 
+                         type="text" 
+                         placeholder="Buscar habitación..." 
+                         className="nexus-search-input"
+                         value={nexusSearchQuery}
+                         onChange={e => setNexusSearchQuery(e.target.value)}
+                       />
+                       <Plus size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted" />
+                     </div>
+                     <div className="stat-pill">
+                       <DoorOpen size={14} className="text-indigo-400" />
+                       <span className="font-bold">{habitaciones.length}</span>
+                       <span className="text-xs text-muted">Habitaciones</span>
+                     </div>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="mb-xs text-lg">¿Cómo funciona V-Nexus?</h4>
-                  <p className="text-sm text-muted max-w-2xl">
-                    Imprima estos códigos QR y colóquelos de forma visible en las habitaciones (ej: detrás de la puerta o en la mesita). 
-                    El huésped solo tiene que escanearlo para reportar una incidencia o solicitar un servicio al instante, 
-                    <strong> sin necesidad de descargar una app o iniciar sesión</strong>.
-                  </p>
+              </div>
+
+              {/* Floor Selection Bar */}
+              <div className="floor-nav-bar p-md bg-black/20 relative z-10 flex items-center gap-md border-b border-white/5">
+                <span className="text-[10px] font-black uppercase text-muted tracking-widest pl-md">Plantas:</span>
+                <div className="flex gap-sm overflow-x-auto no-scrollbar py-sm">
+                  {Array.from(new Set(habitaciones.map(h => {
+                    const match = h.nombre.match(/^\d/);
+                    return match ? match[0] : 'Otros';
+                  }))).sort().map(floor => (
+                    <button 
+                      key={floor}
+                      onClick={() => { setActiveFloor(floor); setSelectedNexusZona('all'); }}
+                      className={`floor-btn ${activeFloor === floor ? 'active' : ''}`}
+                    >
+                      Planta {floor}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Zone Filter Bar */}
+              <div className="zone-filter-bar p-md px-xl flex items-center gap-lg relative z-10 bg-black/10">
+                <div className="flex items-center gap-2 text-xs text-indigo-300 font-bold">
+                  <MapPin size={12} />
+                  <span>Filtrar Zona:</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <button 
+                    onClick={() => setSelectedNexusZona('all')}
+                    className={`filter-chip ${selectedNexusZona === 'all' ? 'active' : ''}`}
+                  >
+                    Todas
+                  </button>
+                  {zonas.filter(z => 
+                    habitaciones.some(h => {
+                      const floorMatch = h.nombre.match(/^\d/);
+                      const roomFloor = floorMatch ? floorMatch[0] : 'Otros';
+                      return roomFloor === activeFloor && h.zona_id === z.id;
+                    })
+                  ).map(z => (
+                    <button 
+                      key={z.id}
+                      onClick={() => setSelectedNexusZona(z.id)}
+                      className={`filter-chip ${selectedNexusZona === z.id ? 'active' : ''}`}
+                    >
+                      {z.nombre}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
 
-            <div className="panel-body p-none">
-              <div className="table-responsive">
-                <table className="config-table">
-                  <thead>
-                    <tr>
-                      <th>Habitación</th>
-                      <th>Zona</th>
-                      <th>Enlace Directo</th>
-                      <th className="text-center">QR (Previsualización)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {habitaciones.map(h => {
-                      const zonaName = zonas.find(z => z.id === h.zona_id)?.nombre || 'General'
-                      const portalUrl = `${window.location.origin}/guest/${h.nombre}`
-                      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(portalUrl)}`
+            {/* QR Grid Grouped */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {habitaciones
+                .filter(h => {
+                  const floorMatch = h.nombre.match(/^\d/);
+                  const roomFloor = floorMatch ? floorMatch[0] : 'Otros';
+                  const matchesFloor = roomFloor === activeFloor;
+                  const matchesZona = selectedNexusZona === 'all' || h.zona_id === selectedNexusZona;
+                  const matchesSearch = h.nombre.toLowerCase().includes(nexusSearchQuery.toLowerCase());
+                  return matchesFloor && matchesZona && matchesSearch;
+                })
+                .map((h: any) => {
+                  const zonaName = zonas.find((z: any) => z.id === h.zona_id)?.nombre || 'General'
+                  const portalUrl = `${window.location.origin}/guest/${h.nombre}`
+                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(portalUrl)}`
+                  
+                  return (
+                    <div key={h.id} className="nexus-room-card glass-card hover-glow">
+                      <div className="room-card-header">
+                        <div className="room-info">
+                          <span className="room-label">Huésped</span>
+                          <h4 className="room-number">Hab. {h.nombre}</h4>
+                          <span className="room-zone-badge">{zonaName}</span>
+                        </div>
+                        <div className="room-qr-mini">
+                          <img src={qrUrl} alt={`QR ${h.nombre}`} />
+                          <div className="qr-overlay" onClick={() => window.open(qrUrl, '_blank')}>
+                            <QrCode size={16} />
+                          </div>
+                        </div>
+                      </div>
                       
-                      return (
-                        <tr key={h.id}>
-                          <td><strong>Hab. {h.nombre}</strong></td>
-                          <td className="text-muted">{zonaName}</td>
-                          <td>
-                            <div className="flex flex-col gap-xs">
-                              <span className="text-xs font-mono select-all bg-muted/30 p-xs rounded border border-divider">
-                                {portalUrl}
-                              </span>
-                              <a 
-                                href={qrUrl} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                className="text-xs text-accent font-bold hover:underline flex items-center gap-xs"
-                              >
-                                Descargar Imagen QR <RefreshCw size={10} />
-                              </a>
-                            </div>
-                          </td>
-                          <td className="py-md text-center">
-                            <div className="qr-preview-container inline-block p-xs bg-white border rounded-lg shadow-sm">
-                              <img 
-                                src={qrUrl} 
-                                alt={`QR Hab ${h.nombre}`} 
-                                className="block"
-                                width="64"
-                                height="64"
-                                loading="lazy"
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                    {habitaciones.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="text-center py-xl text-muted">
-                          No hay habitaciones configuradas aún. Vaya a la pestaña "Zonas" para agregar habitaciones.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      <div className="room-card-actions">
+                        <button 
+                          className="nexus-btn-secondary"
+                          onClick={() => { navigator.clipboard.writeText(portalUrl); alert('URL Copiada'); }}
+                        >
+                          <RefreshCw size={14} /> <span>URL</span>
+                        </button>
+                        <a 
+                          href={qrUrl} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="nexus-btn-primary"
+                        >
+                          <BookOpen size={14} /> <span>PDF QR</span>
+                        </a>
+                      </div>
+                    </div>
+                  )
+                })}
             </div>
+
+            <style>{`
+              .nexus-header-card { padding: 0 !important; border-radius: 24px; border: 1px solid rgba(255,255,255,0.06); }
+              .floor-btn { 
+                padding: 10px 20px; border-radius: 14px; background: rgba(255,255,255,0.03); 
+                border: 1px solid rgba(255,255,255,0.08); color: var(--color-text-muted); 
+                font-weight: 700; font-size: 0.75rem; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                white-space: nowrap;
+              }
+              .floor-btn:hover { background: rgba(255,255,255,0.06); }
+              .floor-btn.active { 
+                background: var(--color-accent); color: white; border-color: var(--color-accent);
+                box-shadow: 0 4px 15px rgba(99,102,241,0.3); transform: translateY(-2px);
+              }
+              
+              .filter-chip {
+                padding: 6px 14px; border-radius: 20px; background: transparent; border: 1px solid rgba(255,255,255,0.1);
+                color: var(--color-text-muted); font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+              }
+              .filter-chip:hover { border-color: var(--color-accent); color: white; }
+              .filter-chip.active { background: rgba(99,102,241,0.1); border-color: var(--color-accent); color: var(--color-accent); }
+              
+              .stat-pill { 
+                display: flex; align-items: center; gap: 10px; padding: 10px 18px; 
+                background: rgba(255,255,255,0.03); border-radius: 16px; border: 1px solid rgba(255,255,255,0.05);
+              }
+              
+              .nexus-room-card { padding: 20px !important; border-radius: 20px; display: flex; flex-direction: column; gap: 20px; position: relative; }
+              .room-card-header { display: flex; justify-content: space-between; align-items: center; }
+              .room-label { font-[10px]; font-bold; uppercase; letter-spacing: 0.1em; color: var(--color-accent); opacity: 0.8; }
+              .room-number { font-size: 1.25rem; font-black; color: white; margin: 4px 0; }
+              .room-zone-badge { font-size: 0.65rem; color: var(--color-text-muted); background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 6px; }
+              
+              .room-qr-mini { width: 64px; height: 64px; background: white; border-radius: 12px; padding: 4px; position: relative; cursor: pointer; }
+              .room-qr-mini img { width: 100%; height: 100%; border-radius: 8px; }
+              .qr-overlay { 
+                position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
+                opacity: 0; transition: opacity 0.2s; border-radius: 12px; color: white;
+              }
+              .room-qr-mini:hover .qr-overlay { opacity: 1; }
+              
+              .room-card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+              .nexus-btn-primary, .nexus-btn-secondary {
+                height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;
+                font-size: 0.7rem; font-bold; transition: all 0.2s; cursor: pointer; border: none;
+              }
+              .nexus-btn-primary { background: var(--color-accent); color: white; }
+              .nexus-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+              .nexus-btn-secondary { background: rgba(255,255,255,0.05); color: var(--color-text-muted); border: 1px solid rgba(255,255,255,0.1); }
+              .nexus-btn-secondary:hover { background: rgba(255,255,255,0.1); color: white; }
+              
+              .nexus-search-input {
+                background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+                padding: 10px 18px; padding-right: 40px; border-radius: 16px; font-size: 0.75rem;
+                color: white; width: 220px; transition: all 0.2s;
+              }
+              .nexus-search-input:focus { border-color: var(--color-accent); outline: none; background: rgba(255,255,255,0.06); }
+
+              .hover-glow:hover { box-shadow: 0 0 30px rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.3); transform: translateY(-3px); }
+            `}</style>
           </div>
         )}
 
         {/* V-QR Tab Content */}
         {activeTab === 'v-qr' && (
-          <div className="glass-card table-panel animate-fade-in">
-            <div className="panel-header border-b">
-              <div className="flex items-center gap-md">
-                <Wrench size={20} className="text-accent" />
-                <h3>V-QR: Gestión de Activos y Equipos</h3>
+          <div className="glass-card table-panel animate-fade-in" style={{background: 'rgba(15, 15, 26, 0.4)', borderRadius: '32px', border: '1px solid rgba(255, 255, 255, 0.05)', overflow: 'hidden'}}>
+            <div className="panel-header border-b" style={{padding: '32px', borderBottom: '1px solid rgba(255, 255, 255, 0.05)'}}>
+              <div className="flex justify-between items-center w-full">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                    <QrCode size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black tracking-tight text-white">V-QR: Gestión de Activos</h3>
+                    <p className="text-sm text-muted">Equipamiento técnico y maquinaria</p>
+                  </div>
+                </div>
+                <button className="btn btn-primary px-6 rounded-2xl h-12 flex items-center gap-2" onClick={() => setIsAddingActivo(true)}>
+                  <Plus size={18} /> Nuevo Activo
+                </button>
               </div>
-              <button className="btn btn-primary btn-sm" onClick={() => setIsAddingActivo(true)}>
-                <Plus size={16} /> Nuevo Activo
-              </button>
             </div>
             
-            <div className="p-lg border-b bg-accent/5">
-              <p className="text-sm text-muted">
-                Gestione equipos industriales, maquinaria y mobiliario. Genere códigos QR técnicos para que el personal de mantenimiento 
-                pueda acceder instantáneamente al historial de intervenciones y manuales PDF directamente desde sus móviles.
-              </p>
-            </div>
-
             <div className="panel-body p-none">
-              <div className="table-responsive">
+              <div className="table-responsive" style={{border: 'none'}}>
                 <table className="config-table">
                   <thead>
-                    <tr>
-                      <th>Activo / Equipo</th>
+                    <tr style={{background: 'transparent'}}>
+                      <th style={{padding: '24px'}}>Activo</th>
+                      <th>Ubicación</th>
                       <th>Tipo</th>
                       <th>Estado</th>
-                      <th className="text-center">QR Técnico</th>
-                      <th>Acciones</th>
+                      <th className="text-center">QR</th>
+                      <th className="text-right" style={{paddingRight: '24px'}}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1616,36 +1744,42 @@ export default function Configuracion() {
                       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(portalUrl)}`
                       
                       return (
-                        <tr key={a.id}>
-                          <td>
-                            <div className="flex flex-col">
-                              <strong>{a.nombre}</strong>
-                              <span className="text-xs text-muted">{zonas.find(z => z.id === a.zona_id)?.nombre || 'Ubicación no asignada'}</span>
+                        <tr key={a.id} className="hover:bg-white/[0.02] transition-colors border-b border-white/[0.03]">
+                          <td style={{padding: '24px'}}>
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-black">
+                                {a.nombre[0]}
+                              </div>
+                              <strong className="text-white text-md">{a.nombre}</strong>
                             </div>
                           </td>
-                          <td><span className="badge badge-secondary">{a.tipo?.toUpperCase()}</span></td>
+                          <td><span className="text-sm text-gray-400">{zonas.find(z => z.id === a.zona_id)?.nombre || 'General'}</span></td>
                           <td>
-                            <span className={`badge-status ${a.estado === 'operativo' ? 'success' : a.estado === 'averiado' ? 'danger' : 'warning'}`}>
-                              {a.estado?.toUpperCase()}
+                            <span className="text-[10px] font-black uppercase tracking-widest text-white/50 bg-white/5 px-3 py-1 rounded-lg border border-white/5">
+                              {a.tipo?.toUpperCase()}
                             </span>
                           </td>
-                          <td className="text-center">
-                            <a href={qrUrl} target="_blank" rel="noreferrer" className="inline-block p-xs bg-white border rounded shadow-sm hover:scale-110 transition-transform">
-                              <img src={qrUrl} alt={`QR ${a.nombre}`} width="48" height="48" />
-                            </a>
-                            <p className="text-[10px] text-accent font-bold mt-xs">Click para ampliar</p>
-                          </td>
                           <td>
-                            <button className="btn-icon btn-ghost text-danger" onClick={() => handleDelete('activos', a.id, a.nombre)}>
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${a.estado === 'operativo' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : a.estado === 'averiado' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' : 'bg-yellow-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]'}`} />
+                              <span className={`text-[11px] font-bold uppercase tracking-wider ${a.estado === 'operativo' ? 'text-green-400' : a.estado === 'averiado' ? 'text-red-400' : 'text-yellow-400'}`}>
+                                {a.estado?.toUpperCase()}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="text-center">
+                            <a href={qrUrl} target="_blank" rel="noreferrer" className="inline-block p-1 bg-white rounded-xl shadow-lg">
+                              <img src={qrUrl} alt={`QR ${a.nombre}`} width="48" height="48" className="rounded-lg" />
+                            </a>
+                          </td>
+                          <td className="text-right" style={{paddingRight: '24px'}}>
+                            <button className="w-9 h-9 inline-flex items-center justify-center rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all" onClick={() => handleDelete('activos', a.id, a.nombre)}>
                               <Trash2 size={16} />
                             </button>
                           </td>
                         </tr>
                       )
                     })}
-                    {activos.length === 0 && (
-                      <tr><td colSpan={5} className="text-center py-xl text-muted">No hay activos registrados.</td></tr>
-                    )}
                   </tbody>
                 </table>
               </div>
@@ -1762,7 +1896,7 @@ export default function Configuracion() {
               <div className="modal-body">
                 <div className="input-group mb-md"><label className="input-label">Nombre del Canal</label><input type="text" className="input" placeholder="Ej. Dirección, Eventos..." value={newCanal.nombre} onChange={e => setNewCanal({...newCanal, nombre: e.target.value})} required /></div>
                 <div className="input-group mb-md"><label className="input-label">ID / Slug (Opcional)</label><input type="text" className="input" placeholder="ej-direccion" value={newCanal.id} onChange={e => setNewCanal({...newCanal, id: e.target.value})} /></div>
-                <div className="input-group"><label className="input-label">Descripción</label><textarea className="input" rows="3" value={newCanal.descripcion} onChange={e => setNewCanal({...newCanal, descripcion: e.target.value})}></textarea></div>
+                <div className="input-group"><label className="input-label">Descripción</label><textarea className="input" rows={3} value={newCanal.descripcion} onChange={e => setNewCanal({...newCanal, descripcion: e.target.value})}></textarea></div>
               </div>
               <div className="modal-footer"><button type="submit" className="btn btn-primary">Crear Canal</button></div>
             </form>
@@ -1813,7 +1947,7 @@ export default function Configuracion() {
                 </div>
                 <div className="input-group mb-md">
                   <label className="input-label">Descripción</label>
-                  <textarea className="input" rows="2" placeholder="Detalles de la revisión..." value={newMantenimiento.descripcion} onChange={e => setNewMantenimiento({...newMantenimiento, descripcion: e.target.value})}></textarea>
+                  <textarea className="input" rows={2} placeholder="Detalles de la revisión..." value={newMantenimiento.descripcion} onChange={e => setNewMantenimiento({...newMantenimiento, descripcion: e.target.value})}></textarea>
                 </div>
                 <div className="grid-2 gap-md">
                   <div className="input-group">
