@@ -1022,6 +1022,12 @@ export default function Chat() {
         }
         .media-preview:hover { transform: scale(1.02); }
         
+        .audio-player {
+          width: 100%;
+          border-radius: var(--radius-full);
+          height: 36px;
+        }
+        
         .file-attachment {
           display: flex;
           align-items: center;
