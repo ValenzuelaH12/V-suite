@@ -42,26 +42,30 @@ export default function GuestPortal() {
       const { data: incidentData, error } = await supabase
         .from('incidencias')
         .insert([{
-          title: `[HUÉSPED] ${typeLabel}`,
+          title: `[V-NEXUS] ${typeLabel}`,
           location: finalLocation,
           priority: 'high',
           status: 'pendiente',
-          descripcion: description || `Solicitud directa de huésped desde portal QR.`,
-          reporter_id: 'guest_user' // Identificador especial o nulo si RLS lo permite
+          descripcion: `[SOLICITUD HUÉSPED] - ${description || 'Sin descripción adicional.'}`,
+          // reporter_id: null // Omitidos para evitar errores de tipo UUID
         }])
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Error insertando incidencia:', error)
+        throw error
+      }
 
       // Crear hilo de chat automático
       if (incidentData) {
-        await supabase.from('canales').insert([{
+        const { error: chatError } = await supabase.from('canales').insert([{
           id: `inc_${incidentData.id}`,
           nombre: `Huésped: Hab ${room || '?' }`,
           tipo: 'incidencia',
           descripcion: `Atención directa al huésped en ${finalLocation}`
         }])
+        if (chatError) console.error('Error creando canal de chat:', chatError)
       }
 
       setSubmitted(true)
