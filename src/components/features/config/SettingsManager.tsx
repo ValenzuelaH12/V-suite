@@ -247,40 +247,47 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onMessage }) =
               Configura qué roles reciben notificaciones según la zona o la urgencia de la incidencia.
             </p>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-lg">
+            <div className="settings-grid">
               {ROLES.map(role => {
                 const rule = settings.notification_rules?.[role.id] || { enabled: true, zones: ['all'], priorities: ['all'] };
                 
                 return (
-                  <div key={role.id} className="bg-white/5 rounded-xl p-md border border-white/10 flex flex-col gap-md">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-sm">
-                      <div className="flex items-center gap-sm">
-                        <div className={`w-3 h-3 rounded-full ${rule.enabled ? 'bg-success' : 'bg-muted'}`} />
-                        <h4 className="font-bold text-lg">{role.name}</h4>
+                  <div key={role.id} className="role-card">
+                    {/* Header: Role Name & Master Toggle */}
+                    <div className="role-header">
+                      <div className="role-title">
+                        <div className={`status-dot ${rule.enabled ? 'active' : ''}`} />
+                        {role.name}
                       </div>
-                      <label className="flex items-center cursor-pointer">
-                        <div className="relative">
-                          <input 
-                            type="checkbox" 
-                            className="sr-only" 
-                            checked={rule.enabled}
-                            onChange={(e) => {
-                              const newRules = { ...settings.notification_rules };
-                              newRules[role.id] = { ...rule, enabled: e.target.checked };
-                              setSettings({ ...settings, notification_rules: newRules });
-                            }}
-                          />
-                          <div className={`block w-10 h-6 rounded-full transition-colors ${rule.enabled ? 'bg-success' : 'bg-white/10'}`}></div>
-                          <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${rule.enabled ? 'transform translate-x-4' : ''}`}></div>
+                      <label className="toggle-switch">
+                        <span className="text-sm text-secondary font-medium mr-2">
+                          {rule.enabled ? 'Activado' : 'Desactivado'}
+                        </span>
+                        <input 
+                          type="checkbox" 
+                          checked={rule.enabled}
+                          onChange={(e) => {
+                            const newRules = { ...settings.notification_rules };
+                            newRules[role.id] = { ...rule, enabled: e.target.checked };
+                            setSettings({ ...settings, notification_rules: newRules });
+                          }}
+                        />
+                        <div className="toggle-track">
+                          <div className="toggle-thumb"></div>
                         </div>
                       </label>
                     </div>
 
+                    {/* Filter Options */}
                     {rule.enabled && (
-                      <div className="flex flex-col gap-sm">
-                        <div className="input-group">
-                          <label className="text-xs text-muted font-medium mb-1">Prioridades a Notificar</label>
-                          <div className="flex flex-wrap gap-2">
+                      <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                        {/* Priorities Selection */}
+                        <div className="filter-group">
+                          <div className="filter-header">
+                            <span className="filter-label">Prioridades</span>
+                            <span className="filter-desc">Gravedad requerida</span>
+                          </div>
+                          <div className="filter-options">
                             <button
                               type="button"
                               onClick={() => {
@@ -288,35 +295,43 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onMessage }) =
                                 newRules[role.id] = { ...rule, priorities: ['all'] };
                                 setSettings({ ...settings, notification_rules: newRules });
                               }}
-                              className={`px-3 py-1 text-xs rounded-full border transition-colors ${rule.priorities.includes('all') ? 'bg-accent/20 border-accent text-accent' : 'bg-white/5 border-white/10 text-muted hover:border-white/30'}`}
+                              className={`filter-chip ${rule.priorities.includes('all') ? 'active' : ''}`}
                             >
                               Todas
                             </button>
-                            {PRIORITIES.map(p => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                disabled={rule.priorities.includes('all')}
-                                onClick={() => {
-                                  const newRules = { ...settings.notification_rules };
-                                  const newPrios = rule.priorities.includes(p.id) 
-                                    ? rule.priorities.filter(x => x !== p.id)
-                                    : [...rule.priorities.filter(x => x !== 'all'), p.id];
-                                  
-                                  newRules[role.id] = { ...rule, priorities: newPrios.length === 0 ? ['all'] : newPrios };
-                                  setSettings({ ...settings, notification_rules: newRules });
-                                }}
-                                className={`px-3 py-1 text-xs rounded-full border transition-colors ${rule.priorities.includes('all') ? 'opacity-50 cursor-not-allowed bg-white/5 border-transparent' : rule.priorities.includes(p.id) ? 'bg-white/20 border-white/40 text-white' : 'bg-white/5 border-white/10 text-muted hover:border-white/30'}`}
-                              >
-                                {p.name}
-                              </button>
-                            ))}
+                            {PRIORITIES.map(p => {
+                              const isSelected = rule.priorities.includes(p.id);
+                              const isAllSelected = rule.priorities.includes('all');
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  disabled={isAllSelected}
+                                  onClick={() => {
+                                    const newRules = { ...settings.notification_rules };
+                                    const newPrios = isSelected
+                                      ? rule.priorities.filter(x => x !== p.id)
+                                      : [...rule.priorities.filter(x => x !== 'all'), p.id];
+                                    
+                                    newRules[role.id] = { ...rule, priorities: newPrios.length === 0 ? ['all'] : newPrios };
+                                    setSettings({ ...settings, notification_rules: newRules });
+                                  }}
+                                  className={`filter-chip ${isSelected ? 'active' : ''}`}
+                                >
+                                  {p.name}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
 
-                        <div className="input-group">
-                          <label className="text-xs text-muted font-medium mb-1">Zonas Asignadas</label>
-                          <div className="flex flex-wrap gap-2">
+                        {/* Zones Selection */}
+                        <div className="filter-group">
+                          <div className="filter-header">
+                            <span className="filter-label">Zonas</span>
+                            <span className="filter-desc">Ubicación asignada</span>
+                          </div>
+                          <div className="filter-options">
                             <button
                               type="button"
                               onClick={() => {
@@ -324,29 +339,33 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onMessage }) =
                                 newRules[role.id] = { ...rule, zones: ['all'] };
                                 setSettings({ ...settings, notification_rules: newRules });
                               }}
-                              className={`px-3 py-1 text-xs rounded-full border transition-colors ${rule.zones.includes('all') ? 'bg-accent/20 border-accent text-accent' : 'bg-white/5 border-white/10 text-muted hover:border-white/30'}`}
+                              className={`filter-chip ${rule.zones.includes('all') ? 'active' : ''}`}
                             >
                               Todas
                             </button>
-                            {zones.map(z => (
-                              <button
-                                key={z.id}
-                                type="button"
-                                disabled={rule.zones.includes('all')}
-                                onClick={() => {
-                                  const newRules = { ...settings.notification_rules };
-                                  const newZones = rule.zones.includes(z.id) 
-                                    ? rule.zones.filter(x => x !== z.id)
-                                    : [...rule.zones.filter(x => x !== 'all'), z.id];
-                                  
-                                  newRules[role.id] = { ...rule, zones: newZones.length === 0 ? ['all'] : newZones };
-                                  setSettings({ ...settings, notification_rules: newRules });
-                                }}
-                                className={`px-3 py-1 text-xs rounded-full border transition-colors ${rule.zones.includes('all') ? 'opacity-50 cursor-not-allowed bg-white/5 border-transparent' : rule.zones.includes(z.id) ? 'bg-white/20 border-white/40 text-white' : 'bg-white/5 border-white/10 text-muted hover:border-white/30'}`}
-                              >
-                                {z.nombre}
-                              </button>
-                            ))}
+                            {zones.map(z => {
+                              const isSelected = rule.zones.includes(z.id);
+                              const isAllSelected = rule.zones.includes('all');
+                              return (
+                                <button
+                                  key={z.id}
+                                  type="button"
+                                  disabled={isAllSelected}
+                                  onClick={() => {
+                                    const newRules = { ...settings.notification_rules };
+                                    const newZones = isSelected
+                                      ? rule.zones.filter(x => x !== z.id)
+                                      : [...rule.zones.filter(x => x !== 'all'), z.id];
+                                    
+                                    newRules[role.id] = { ...rule, zones: newZones.length === 0 ? ['all'] : newZones };
+                                    setSettings({ ...settings, notification_rules: newRules });
+                                  }}
+                                  className={`filter-chip ${isSelected ? 'active' : ''}`}
+                                >
+                                  {z.nombre}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
