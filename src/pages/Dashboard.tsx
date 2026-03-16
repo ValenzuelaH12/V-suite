@@ -719,7 +719,7 @@ export default function Dashboard() {
           }
         }
 
-        @media (max-width: Dispositivo) { /* 480 o 640 */
+        @media (max-width: 640px) {
           .stats-grid {
             grid-template-columns: 1fr !important;
           }

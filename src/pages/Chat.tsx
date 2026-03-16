@@ -273,6 +273,42 @@ export default function Chat() {
     return channel.nombre
   }
 
+  const renderChannelItem = (channel) => {
+    const displayName = getChannelDisplayName(channel)
+    const firstLetter = displayName?.charAt(0).toUpperCase()
+    const isDM = channel.id.startsWith('dm_')
+    
+    let avatarClass = 'bg-secondary text-muted'
+    if (channel.id === 'general') avatarClass = 'avatar-gradient'
+    else if (channel.id === 'mantenimiento') avatarClass = 'bg-info-light text-info'
+    else if (channel.id === 'limpieza') avatarClass = 'bg-success-light text-success'
+    else if (channel.id === 'direccion') avatarClass = 'bg-danger-light text-danger'
+    else if (isDM) avatarClass = 'bg-accent-light text-accent'
+
+    return (
+      <div 
+        key={channel.id} 
+        className={`channel-item ${activeChannel === channel.id ? 'active' : ''}`}
+        onClick={() => {
+          setActiveChannel(channel.id)
+          setShowChatMobile(true)
+        }}
+      >
+        <div className={`avatar avatar-sm ${avatarClass}`}>
+          {firstLetter}
+        </div>
+        <div className="conversation-details">
+          <div className="conversation-top">
+            <h4>{isDM ? displayName : `#${displayName}`}</h4>
+          </div>
+          {unreadPerChannel[channel.id] > 0 && (
+            <div className="unread-badge">{unreadPerChannel[channel.id]}</div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const handleDeleteChat = async () => {
     const channelName = activeChannelInfo?.nombre || activeChannel
     if (!confirm(`¿Eliminar TODOS los mensajes y archivos multimedia del chat "${channelName}"? Esta acción no se puede deshacer.`)) return
@@ -347,39 +383,32 @@ export default function Chat() {
           </div>
           
           <div className="conversation-list">
-            {channels.filter(c => getChannelDisplayName(c).toLowerCase().includes(searchQuery.toLowerCase())).map(channel => {
-              const displayName = getChannelDisplayName(channel)
-              const firstLetter = displayName?.charAt(0).toUpperCase()
-              
-              let avatarClass = 'bg-secondary text-muted'
-              if (channel.id === 'general') avatarClass = 'avatar-gradient'
-              else if (channel.id === 'mantenimiento') avatarClass = 'bg-info-light text-info'
-              else if (channel.id === 'limpieza') avatarClass = 'bg-success-light text-success'
-              else if (channel.type === 'direct') avatarClass = 'bg-primary-light text-primary'
+            {/* Sección de Canales de Equipo */}
+            <div className="chat-section">
+              <h5 className="section-title">Canales de Equipo</h5>
+              {channels
+                .filter(c => !c.id.startsWith('dm_'))
+                .filter(c => {
+                  // Filtrado por rol para canales sensibles
+                  if (c.id === 'direccion' && !['direccion', 'admin'].includes(profile?.rol)) return false
+                  return true
+                })
+                .filter(c => getChannelDisplayName(c).toLowerCase().includes(searchQuery.toLowerCase()))
+                .map(channel => renderChannelItem(channel))}
+            </div>
 
-              return (
-                <div 
-                  key={channel.id} 
-                  className={`channel-item ${activeChannel === channel.id ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveChannel(channel.id)
-                    setShowChatMobile(true)
-                  }}
-                >
-                  <div className={`avatar ${avatarClass}`}>
-                    {firstLetter}
-                  </div>
-                  <div className="conversation-details">
-                    <div className="conversation-top">
-                      <h4>{displayName}</h4>
-                    </div>
-                    {unreadPerChannel[channel.id] > 0 && (
-                      <div className="unread-badge">{unreadPerChannel[channel.id]}</div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+            {/* Sección de Mensajes Directos */}
+            <div className="chat-section mt-lg">
+              <h5 className="section-title">Mensajes Directos</h5>
+              {channels
+                .filter(c => c.id.startsWith('dm_'))
+                .filter(c => getChannelDisplayName(c).toLowerCase().includes(searchQuery.toLowerCase()))
+                .map(channel => renderChannelItem(channel))}
+              
+              {channels.filter(c => c.id.startsWith('dm_')).length === 0 && (
+                <p className="text-xs text-muted px-lg italic">Sin mensajes directos</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -390,11 +419,17 @@ export default function Chat() {
               <button className="btn-icon btn-ghost mobile-only mr-sm" onClick={() => setShowChatMobile(false)}>
                 <RefreshCw size={18} style={{ transform: 'rotate(-90deg)' }} />
               </button>
-              <div className={`avatar ${activeChannelInfo?.id === 'general' ? 'avatar-gradient' : activeChannelInfo?.id === 'mantenimiento' ? 'bg-info-light text-info' : activeChannelInfo?.id === 'limpieza' ? 'bg-success-light text-success' : 'bg-secondary text-muted'}`}>
-                {activeChannelInfo?.nombre?.charAt(0).toUpperCase()}
+              <div className={`avatar ${
+                activeChannelInfo?.id === 'general' ? 'avatar-gradient' : 
+                activeChannelInfo?.id === 'direccion' ? 'bg-danger-light text-danger' :
+                activeChannelInfo?.id === 'mantenimiento' ? 'bg-info-light text-info' : 
+                activeChannelInfo?.id === 'limpieza' ? 'bg-success-light text-success' : 
+                'bg-secondary text-muted'
+              }`}>
+                {getChannelDisplayName(activeChannelInfo || { nombre: 'C' }).charAt(0).toUpperCase()}
               </div>
               <div>
-                <h2>{activeChannelInfo?.nombre}</h2>
+                <h2>{activeChannelInfo?.id.startsWith('dm_') ? getChannelDisplayName(activeChannelInfo) : `#${activeChannelInfo?.nombre}`}</h2>
                 <span className="text-sm text-success">● Staff Online</span>
               </div>
             </div>
@@ -630,9 +665,19 @@ export default function Chat() {
           font-size: var(--font-size-lg);
         }
 
+        .section-title {
+          font-size: 0.65rem;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: var(--color-text-muted);
+          padding: 0 var(--spacing-lg) var(--spacing-sm);
+          font-weight: 700;
+        }
+
         .conversation-list {
           flex: 1;
           overflow-y: auto;
+          padding-top: var(--spacing-md);
         }
 
         .channel-item {
@@ -792,12 +837,33 @@ export default function Chat() {
           opacity: 0.7;
         }
         .message {
-          max-width: 80%;
-          padding: 0.875rem 1.125rem;
-          border-radius: var(--radius-lg);
-          font-size: var(--font-size-md);
-          line-height: 1.5;
+          max-width: 85%;
+          padding: 0.75rem 1rem;
+          border-radius: 18px;
+          font-size: 0.9375rem;
+          line-height: 1.45;
           position: relative;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.sent {
+          background: var(--color-accent-gradient);
+          color: white;
+          border-bottom-right-radius: 4px;
+        }
+
+        .message.received {
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--color-text-primary);
+          border-bottom-left-radius: 4px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .message-media {
+          border-radius: 12px;
+          overflow: hidden;
+          margin-bottom: 8px;
+        }
           box-shadow: var(--shadow-sm);
           animation: messageSlideIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
         }
