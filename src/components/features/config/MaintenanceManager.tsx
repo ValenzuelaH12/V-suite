@@ -15,6 +15,14 @@ interface MaintenanceManagerProps {
   activeHotelId: string | null;
 }
 
+const CATEGORIES: Record<string, string[]> = {
+  'Zonas Comunes': ['Recepción', 'Pasillos', 'Aseos Públicos', 'Fachada', 'Piscina', 'Gimnasio'],
+  'Habitaciones': ['Mobiliario', 'Colchones/Camas', 'Grifería Baño', 'Mini-bar', 'Iluminación', 'Climatización'],
+  'Maquinaria/Filtros': ['Filtros HVAC', 'Bombas de Agua', 'Filtros Piscina', 'Calderas', 'Ascensores'],
+  'Electricidad': ['Cuadros Eléctricos', 'Emergencias', 'Iluminación Exterior', 'Generador'],
+  'Fontanería': ['Tuberías General', 'Bombas Presión', 'Desagües', 'Depósitos']
+};
+
 export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ 
   maintenance, 
   templates, 
@@ -31,7 +39,8 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
     descripcion: '',
     frecuencia: 'mensual',
     proxima_fecha: new Date().toISOString().split('T')[0],
-    plantilla_id: '',
+    categoria: '',
+    subcategoria: '',
     hotel_id: activeHotelId || ''
   });
 
@@ -66,7 +75,8 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
         descripcion: '', 
         frecuencia: 'mensual', 
         proxima_fecha: new Date().toISOString().split('T')[0], 
-        plantilla_id: '',
+        categoria: '',
+        subcategoria: '',
         hotel_id: activeHotelId || ''
       });
       onRefresh();
@@ -362,21 +372,38 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
               </div>
 
               <div className="input-field-group mt-xl">
-                <label>Vincular Plantilla (Checklist)</label>
-                <div className="template-select-wrap">
+                <label>Categoría Principal</label>
+                <div className="premium-select-wrap">
                   <select 
-                    value={newMaint.plantilla_id}
-                    onChange={e => setNewMaint({...newMaint, plantilla_id: e.target.value})}
+                    value={newMaint.categoria}
+                    onChange={e => setNewMaint({...newMaint, categoria: e.target.value, subcategoria: ''})}
                     className="premium-select"
                   >
-                    <option value="">Sin plantilla vinculada</option>
-                    {templates.map(t => (
-                      <option key={t.id} value={t.id}>{t.nombre}</option>
+                    <option value="">Seleccione Categoría</option>
+                    {Object.keys(CATEGORIES).map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
-                  <div className="select-glow"></div>
                 </div>
               </div>
+
+              {newMaint.categoria && (
+                <div className="input-field-group mt-lg animate-fade-in">
+                  <label>Subcategoría / Filtro</label>
+                  <div className="premium-select-wrap">
+                    <select 
+                      value={newMaint.subcategoria}
+                      onChange={e => setNewMaint({...newMaint, subcategoria: e.target.value})}
+                      className="premium-select"
+                    >
+                      <option value="">Seleccione Subcategoría</option>
+                      {CATEGORIES[newMaint.categoria].map(sub => (
+                        <option key={sub} value={sub}>{sub}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -513,9 +540,20 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
         }
         .freq-card:hover { background: rgba(255,255,255,0.06); transform: translateY(-2px); }
         .freq-card.active { 
-          background: rgba(99, 102, 241, 0.1); border-color: #6366f1; 
-          color: white; box-shadow: 0 8px 20px rgba(99, 102, 241, 0.15);
+          background: rgba(99, 102, 241, 0.2); border-color: #6366f1; 
+          color: white; box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+          transform: scale(1.02);
         }
+        
+        /* Fix para evitar fondo blanco en selección */
+        .premium-select option {
+          background: #11111a;
+          color: white;
+        }
+        
+        /* Ocultar scrollbars */
+        .premium-textarea::-webkit-scrollbar { width: 4px; }
+        .premium-textarea::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         .freq-card span { font-size: 0.75rem; font-weight: 700; }
 
         /* Dynamic Item List */
