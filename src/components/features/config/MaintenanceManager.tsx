@@ -10,6 +10,7 @@ import { Badge } from '../../ui/Badge';
 interface MaintenanceManagerProps {
   maintenance: any[];
   templates: any[];
+  categories?: any[]; // Dynamic categories from DB
   onMessage: (msg: { type: 'success' | 'error', text: string }) => void;
   onRefresh: () => void;
   activeHotelId: string | null;
@@ -26,14 +27,20 @@ const CATEGORIES: Record<string, string[]> = {
 export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({ 
   maintenance, 
   templates, 
+  categories = [], 
   onMessage,
   onRefresh,
   activeHotelId
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'tareas' | 'plantillas'>('tareas');
+  const [activeSubTab, setActiveSubTab] = useState<'tareas' | 'plantillas' | 'categorias'>('tareas');
   const [isAddingMaint, setIsAddingMaint] = useState(false);
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
+  const [isManagingCats, setIsManagingCats] = useState(false);
   
+  // Dynamic categories state if not passed as prop
+  const [dbCategories, setDbCategories] = useState<any[]>([]);
+  const [loadingCats, setLoadingCats] = useState(false);
+
   const [newMaint, setNewMaint] = useState({
     titulo: '',
     descripcion: '',
@@ -43,6 +50,30 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
     subcategoria: '',
     hotel_id: activeHotelId || ''
   });
+
+  const [newCat, setNewCat] = useState({ nombre: '', subcategorias: [] as string[] });
+  const [newSubItem, setNewSubItem] = useState('');
+
+  // Fetch categories
+  const fetchCategories = async () => {
+    setLoadingCats(true);
+    try {
+      const { data, error } = await supabase
+        .from('mantenimiento_categorias')
+        .select('*')
+        .order('nombre');
+      if (error) throw error;
+      setDbCategories(data || []);
+    } catch (e: any) {
+      console.error('Error fetching categories:', e);
+    } finally {
+      setLoadingCats(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchCategories();
+  }, [activeHotelId]);
 
   const [newTemplate, setNewTemplate] = useState({ nombre: '', items: [] as string[], hotel_id: activeHotelId || '' });
   const [newTemplateItem, setNewTemplateItem] = useState('');
@@ -172,16 +203,33 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
           >
             <ClipboardList size={18} /> Plantillas
           </button>
+          <button 
+            onClick={() => setActiveSubTab('categorias')}
+            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeSubTab === 'categorias' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-muted hover:text-white'}`}
+          >
+            <Layers size={18} /> Categorías
+          </button>
         </div>
         
-        <Button 
-          variant="primary" 
-          onClick={() => activeSubTab === 'tareas' ? setIsAddingMaint(true) : setIsAddingTemplate(true)}
-          icon={Plus}
-          className="shadow-xl"
-        >
-          {activeSubTab === 'tareas' ? 'Nueva Tarea' : 'Nueva Plantilla'}
-        </Button>
+        <div className="flex gap-md">
+          {activeSubTab === 'categorias' && (
+            <Button 
+              variant="secondary" 
+              onClick={() => setIsManagingCats(true)}
+              icon={Plus}
+            >
+              Nueva Categoría
+            </Button>
+          )}
+          <Button 
+            variant="primary" 
+            onClick={() => activeSubTab === 'tareas' ? setIsAddingMaint(true) : activeSubTab === 'plantillas' ? setIsAddingTemplate(true) : setIsManagingCats(true)}
+            icon={Plus}
+            className="shadow-xl"
+          >
+            {activeSubTab === 'tareas' ? 'Nueva Tarea' : activeSubTab === 'plantillas' ? 'Nueva Plantilla' : 'Añadir Categoría'}
+          </Button>
+        </div>
       </div>
 
       {activeSubTab === 'tareas' ? (
@@ -357,6 +405,8 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
                     { id: 'diario', label: 'Diario', icon: Clock },
                     { id: 'semanal', label: 'Semanal', icon: Calendar },
                     { id: 'mensual', label: 'Mensual', icon: Layers },
+                    { id: 'trimestral', label: 'Trimestral', icon: Activity },
+                    { id: 'semestral', label: 'Cada 6 meses', icon: Activity },
                     { id: 'anual', label: 'Anual', icon: Activity }
                   ].map(f => (
                     <div 
@@ -380,8 +430,8 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
                     className="premium-select"
                   >
                     <option value="">Seleccione Categoría</option>
-                    {Object.keys(CATEGORIES).map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
+                    {dbCategories.map(cat => (
+                      <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
                     ))}
                   </select>
                 </div>
@@ -397,7 +447,7 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
                       className="premium-select"
                     >
                       <option value="">Seleccione Subcategoría</option>
-                      {CATEGORIES[newMaint.categoria].map(sub => (
+                      {dbCategories.find(c => c.nombre === newMaint.categoria)?.subcategorias?.map((sub: string) => (
                         <option key={sub} value={sub}>{sub}</option>
                       ))}
                     </select>
