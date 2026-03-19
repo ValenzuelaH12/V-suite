@@ -30,6 +30,7 @@ import {
   Layout,
   LayoutGrid,
   Circle,
+  Save,
   ThumbsUp,
   AlertCircle,
   XCircle
@@ -202,29 +203,48 @@ export default function Planificacion() {
   const handleStartDetailedExecution = async (task: any) => {
     try {
       setLoading(true);
-      const { data: exec, error: execError } = await supabase
-        .from('mantenimiento_ejecucion')
-        .insert([{
-          tarea_id: task.id,
-          hotel_id: activeHotelId,
-          tecnico_id: profile?.id,
-          estado: 'in_progress'
-        }])
-        .select()
-        .single();
-
-      if (execError) throw execError;
       
-      setExecutionId(exec.id);
+      // 1. Buscar si ya existe una ejecución en progreso para esta tarea y este hotel
+      const { data: existingExec } = await supabase
+        .from('mantenimiento_ejecucion')
+        .select('*')
+        .eq('tarea_id', task.id)
+        .eq('hotel_id', activeHotelId)
+        .eq('estado', 'in_progress')
+        .maybeSingle();
+
+      let execId = existingExec?.id;
+
+      if (!execId) {
+        // 2. Si no existe, crear una nueva
+        const { data: newExec, error: execError } = await supabase
+          .from('mantenimiento_ejecucion')
+          .insert([{
+            tarea_id: task.id,
+            hotel_id: activeHotelId,
+            tecnico_id: profile?.id,
+            estado: 'in_progress'
+          }])
+          .select()
+          .single();
+
+        if (execError) throw execError;
+        execId = newExec.id;
+        toast.info("Iniciando nueva sesión de mantenimiento");
+      } else {
+        toast.info("Resumiendo sesión de mantenimiento guardada");
+      }
+      
+      setExecutionId(execId);
       setExecutingTaskId(task.id);
       setIsDetailedMode(true);
       setInspectedRooms({});
       
-      // Load previously saved entities if any (resuming)
+      // 3. Cargar las entidades ya revisadas en esta ejecución
       const { data: entities } = await supabase
         .from('mantenimiento_entidades')
         .select('*')
-        .eq('ejecucion_id', exec.id);
+        .eq('ejecucion_id', execId);
       
       if (entities?.length) {
         const mapped = entities.reduce((acc: any, ent: any) => {
@@ -234,10 +254,19 @@ export default function Planificacion() {
         setInspectedRooms(mapped);
       }
     } catch (error: any) {
-      toast.error("Error al iniciar ejecución detallada: " + error.message);
+      toast.error("Error al iniciar ejecución: " + error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveAndExit = () => {
+    setIsDetailedMode(false);
+    setExecutionId(null);
+    setExecutingTaskId(null);
+    setInspectedRooms({});
+    setCompletingTask(null);
+    toast.success("Progreso guardado localmente (Sesión sigue activa en la nube)");
   };
 
   const handleOpenInspection = (room: any) => {
@@ -297,6 +326,13 @@ export default function Planificacion() {
 
   const handleFinishDetailedExecution = async () => {
     if (!executionId) return;
+
+    const pendingCount = rooms.length - Object.keys(inspectedRooms).length;
+    if (pendingCount > 0) {
+      const proceed = window.confirm(`Atención: Aún faltan ${pendingCount} unidades por revisar. ¿Estás absolutamente seguro de que deseas FINALIZAR TODA la tarea semestral y programar la siguiente fecha? (Esta acción no se puede deshacer)`);
+      if (!proceed) return;
+    }
+
     try {
       setLoading(true);
       const { error } = await supabase
@@ -1246,15 +1282,35 @@ export default function Planificacion() {
                         })}
                     </div>
 
-                    <div className="mt-lg pt-lg border-t border-white/5">
-                       <button 
-                         type="button" 
-                         className="btn btn-primary w-full py-md"
-                         onClick={handleFinishDetailedExecution}
-                         disabled={Object.keys(inspectedRooms).length === 0}
-                       >
-                         Finalizar Ejecución y Completar Tarea
-                       </button>
+                    <div className="flex flex-col gap-3 mt-lg pt-lg border-t border-white/5">
+                      <button 
+                        type="button" 
+                        className={`w-full h-14 rounded-2xl font-black tracking-widest uppercase text-xs flex items-center justify-center gap-3 transition-opacity ${
+                          Object.keys(inspectedRooms).length < rooms.length 
+                          ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30 hover:bg-amber-500/30' 
+                          : 'bg-accent text-white shadow-xl shadow-accent/20'
+                        }`}
+                        onClick={handleFinishDetailedExecution}
+                        disabled={loading}
+                      >
+                        {loading ? 'Finalizando...' : (
+                          <>
+                            <CheckCircle size={18} />
+                            {Object.keys(inspectedRooms).length < rooms.length 
+                              ? `FINALIZAR TODO (${Object.keys(inspectedRooms).length}/${rooms.length} LISTAS)` 
+                              : 'FINALIZAR Y PROGRAMAR SIGUIENTE'}
+                          </>
+                        )}
+                      </button>
+
+                      <button 
+                        type="button" 
+                        className="w-full h-12 rounded-2xl bg-white/5 text-muted hover:text-white hover:bg-white/10 font-bold text-xs flex items-center justify-center gap-2 transition-all border border-white/5"
+                        onClick={handleSaveAndExit}
+                      >
+                        <Save size={16} />
+                        GUARDAR PROGRESO Y CONTINUAR LUEGO
+                      </button>
                     </div>
                   </div>
                 )}
