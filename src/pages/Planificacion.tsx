@@ -28,6 +28,8 @@ import {
   Layers,
   ShieldCheck,
   Layout,
+  LayoutGrid,
+  Circle,
   ThumbsUp,
   AlertCircle,
   XCircle
@@ -61,6 +63,7 @@ export default function Planificacion() {
   const [msg, setMsg] = useState({ type: '', text: '' })
   const [completingTask, setCompletingTask] = useState<any>(null)
   const [dbCategories, setDbCategories] = useState<any[]>([])
+  const [roomFilter, setRoomFilter] = useState<'all' | 'pending' | 'done'>('all')
   
   // -- ESTADOS PARA EJECUCIÓN DETALLADA --
   const [isDetailedMode, setIsDetailedMode] = useState(false)
@@ -1143,50 +1146,104 @@ export default function Planificacion() {
 
                 {/* VISTA DE EJECUCIÓN DETALLADA (GRID DE HABITACIONES) */}
                 {isDetailedMode && (
-                  <div className="mt-lg border-t border-white/5 pt-lg">
-                    <div className="flex justify-between items-center mb-md">
-                      <h3 className="text-lg font-black text-white">Inspección de Habitaciones</h3>
-                      <div className="flex items-center gap-sm">
-                        <span className="text-xs text-muted font-bold capitalize">{Object.keys(inspectedRooms).length} / {rooms.length} Revisadas</span>
+                  <div className="mt-lg border-t border-white/5 pt-lg space-y-lg">
+                    <div className="flex flex-col gap-md">
+                      <div className="flex justify-between items-end">
+                        <div className="flex flex-col">
+                          <span className="text-xxs text-accent font-black tracking-widest uppercase mb-1">PROGRESO DE REVISIÓN</span>
+                          <h3 className="text-xl font-black text-white">Inspección de Unidades</h3>
+                        </div>
+                        <div className="bg-white/5 px-4 py-2 rounded-2xl border border-white/5">
+                           <span className="text-xs text-white font-bold">{Object.keys(inspectedRooms).length} <span className="text-muted">/ {rooms.length}</span></span>
+                        </div>
+                      </div>
+
+                      {/* FILTROS Y BÚSQUEDA */}
+                      <div className="flex flex-col gap-sm">
+                        <div className="flex p-1.5 bg-black/40 rounded-[1.25rem] border border-white/5">
+                          {[
+                            { id: 'all', label: 'Todas', icon: LayoutGrid },
+                            { id: 'pending', label: 'Pendientes', icon: Clock },
+                            { id: 'done', label: 'Revisadas', icon: ShieldCheck }
+                          ].map(t => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setRoomFilter(t.id as any)}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all duration-300 ${
+                                roomFilter === t.id ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-muted hover:text-white hover:bg-white/5'
+                              }`}
+                            >
+                              <t.icon size={12} />
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="relative group">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-accent transition-colors" size={16} />
+                          <input 
+                            type="text" 
+                            placeholder="Buscar por número o nombre..." 
+                            className="w-full bg-white/5 border border-white/5 rounded-2xl pl-12 pr-4 h-12 text-sm text-white placeholder:text-muted focus:border-accent/30 focus:bg-white/[0.08] transition-all outline-none"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="mb-md relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
-                      <input 
-                        type="text" 
-                        placeholder="Buscar habitación..." 
-                        className="input pl-10 h-10 text-sm"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                      />
-                    </div>
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto pr-md custom-scrollbar custom-grid-animate">
+                      {rooms
+                        .filter(r => r.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+                        .filter(r => {
+                          if (roomFilter === 'pending') return !inspectedRooms[r.id];
+                          if (roomFilter === 'done') return !!inspectedRooms[r.id];
+                          return true;
+                        })
+                        .map(room => {
+                          const inspection = inspectedRooms[room.id];
+                          return (
+                            <button
+                              key={room.id}
+                              type="button"
+                              onClick={() => handleOpenInspection(room)}
+                              className={`relative group flex flex-col items-center justify-center p-4 rounded-[2rem] border transition-all duration-500 overflow-hidden ${
+                                inspection?.status === 'ok' ? 'bg-emerald-500/10 border-emerald-500/30' : 
+                                inspection?.status === 'issue' ? 'bg-amber-500/10 border-amber-500/30' : 
+                                'bg-white/5 border-white/5 hover:border-white/10'
+                              }`}
+                            >
+                              {/* Background Glow */}
+                              <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 bg-gradient-to-br ${
+                                inspection?.status === 'ok' ? 'from-emerald-500 to-transparent' : 
+                                inspection?.status === 'issue' ? 'from-amber-500 to-transparent' : 'from-white to-transparent'
+                              }`} />
 
-                    <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-80 overflow-y-auto pr-md custom-scrollbar">
-                      {rooms.filter(r => r.nombre.toLowerCase().includes(searchTerm.toLowerCase())).map(room => {
-                        const inspection = inspectedRooms[room.id];
-                        return (
-                          <button
-                            key={room.id}
-                            type="button"
-                            onClick={() => handleOpenInspection(room)}
-                            className={`room-chip-btn relative aspect-square flex flex-col items-center justify-center gap-1 rounded-xl transition-all border ${
-                              inspection?.status === 'ok' ? 'bg-emerald-500/10 border-emerald-500/30' : 
-                              inspection?.status === 'issue' ? 'bg-amber-500/10 border-amber-500/30' : 
-                              'bg-white/5 border-white/5 hover:border-white/20'
-                            }`}
-                          >
-                            <div className={`p-2 rounded-lg ${
-                              inspection?.status === 'ok' ? 'bg-emerald-500 text-white' : 
-                              inspection?.status === 'issue' ? 'bg-amber-500 text-white' : 'bg-white/5 text-muted'
-                            }`}>
-                              {inspection?.status === 'issue' ? <AlertTriangle size={16} /> : <ShieldCheck size={16} />}
-                            </div>
-                            <span className="text-[10px] font-black text-white">{room.nombre}</span>
-                            {inspection && <div className="absolute top-1 right-1"><CheckCircle size={10} className={inspection.status === 'ok' ? 'text-emerald-400' : 'text-amber-400'} /></div>}
-                          </button>
-                        );
-                      })}
+                              <div className={`mb-3 p-3 rounded-2xl transition-all duration-300 transform group-hover:scale-110 ${
+                                inspection?.status === 'ok' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40' : 
+                                inspection?.status === 'issue' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/40' : 
+                                'bg-white/10 text-muted group-hover:bg-white/20'
+                              }`}>
+                                {inspection?.status === 'issue' ? <AlertTriangle size={20} /> : 
+                                 inspection?.status === 'ok' ? <ShieldCheck size={20} /> : <div className="w-5 h-5 flex items-center justify-center"><Circle size={8} fill="currentColor" /></div>}
+                              </div>
+
+                              <span className="text-sm font-black text-white tracking-tight leading-none mb-1">{room.nombre}</span>
+                              <span className={`text-[9px] font-black uppercase tracking-widest ${
+                                inspection ? 'text-white/40' : 'text-muted/40'
+                              }`}>
+                                {inspection ? 'REVISADO' : 'PENDIENTE'}
+                              </span>
+
+                              {inspection && (
+                                <div className="absolute top-3 right-3 animate-in zoom-in-50 duration-500">
+                                   <div className={`w-2.5 h-2.5 rounded-full ${inspection.status === 'ok' ? 'bg-emerald-500' : 'bg-amber-500'} ring-4 ring-black/20`} />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
                     </div>
 
                     <div className="mt-lg pt-lg border-t border-white/5">
