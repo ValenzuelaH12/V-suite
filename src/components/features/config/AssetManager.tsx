@@ -72,83 +72,86 @@ export const AssetManager: React.FC<AssetManagerProps> = ({
   };
 
   return (
-    <Card className="table-panel">
-      <div className="panel-header border-b">
+    <div className="v-glass-card p-none overflow-hidden animate-fade-in">
+      <div className="v-page-header border-b border-white/5 bg-white/5 py-4 px-6 mb-0">
         <div className="flex items-center gap-md">
-          <Package size={20} className="text-accent" />
-          <h3 className="text-lg font-semibold">Gestión de Activos y Equipos</h3>
+          <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-lg">
+            <Package size={20} />
+          </div>
+          <h3 className="text-lg font-black text-white tracking-tight uppercase">Activos y Equipos</h3>
         </div>
-        <Button size="sm" onClick={() => setIsAddingAsset(true)} icon={Plus}>
+        <Button size="sm" onClick={() => setIsAddingAsset(true)} icon={Plus} className="bg-accent hover:bg-accent-hover text-white rounded-xl px-6 py-2 text-xs font-bold uppercase tracking-wider">
           Registrar Activo
         </Button>
       </div>
 
-      <div className="panel-body p-none">
-        <div className="table-responsive">
-          <table className="config-table">
+      <div className="p-none">
+        <div className="v-table-container">
+          <table className="v-table">
             <thead>
               <tr>
-                <th>Activo</th>
-                <th>Zona</th>
-                <th>Tipo</th>
-                <th>Estado</th>
-                <th>QR Portal</th>
-                <th>Acciones</th>
+                <th className="text-left font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Activo</th>
+                <th className="text-left font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Zona</th>
+                <th className="text-left font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Tipo</th>
+                <th className="text-left font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Estado</th>
+                <th className="text-center font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">QR Portal</th>
+                <th className="text-right font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Acciones</th>
               </tr>
-            </thead>
-            <tbody>
+            </thead>            <tbody>
               {assets.map(a => {
                 const portalUrl = `${window.location.origin}/asset/${a.id}`;
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(portalUrl)}`;
                 
                 return (
-                  <tr key={a.id}>
-                    <td>
+                  <tr key={a.id} className="group hover:bg-white/5 transition-all border-b border-white/5 last:border-0">
+                    <td className="py-4 px-6">
                       <div className="flex items-center gap-sm">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/20 shadow-inner">
                           {a.nombre[0]}
                         </div>
-                        <span className="font-medium">{a.nombre}</span>
+                        <span className="font-bold text-white tracking-tight">{a.nombre}</span>
                       </div>
                     </td>
-                    <td>
-                      <div className="flex items-center gap-xs text-muted">
-                        <MapPin size={14} />
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-xs text-muted font-medium text-xs">
+                        <MapPin size={12} className="text-accent/60" />
                         {zones.find(z => z.id === a.zona_id)?.nombre || 'General'}
                       </div>
                     </td>
-                    <td>
-                      <Badge variant="neutral">{a.tipo?.toUpperCase()}</Badge>
+                    <td className="py-4 px-6">
+                      <span className="px-2 py-0.5 bg-white/5 border border-white/10 text-muted rounded text-[10px] font-bold uppercase tracking-tighter">
+                        {a.tipo?.toUpperCase()}
+                      </span>
                     </td>
-                    <td>
-                      {/* Note: Estado might be dynamic based on incidents, but using fallback here */}
-                      <div className="flex items-center gap-xs">
-                        <div className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                        <span className="text-xs font-bold text-success">OPERATIVO</span>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Operativo</span>
                       </div>
                     </td>
-                    <td>
-                      <a href={qrUrl} target="_blank" rel="noreferrer" className="inline-block p-1 bg-white rounded-lg shadow-sm">
-                        <img src={qrUrl} alt={`QR ${a.nombre}`} width="40" height="40" className="rounded" />
-                      </a>
+                    <td className="py-4 px-6">
+                      <div className="flex justify-center">
+                        <a href={qrUrl} target="_blank" rel="noreferrer" className="inline-block p-1.5 bg-white rounded-xl shadow-lg hover:scale-110 transition-transform">
+                          <img src={qrUrl} alt={`QR ${a.nombre}`} width="36" height="36" className="rounded-lg" />
+                        </a>
+                      </div>
                     </td>
-                    <td>
-                      <div className="flex gap-sm">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                    <td className="py-4 px-6 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button 
                           onClick={() => window.open(portalUrl, '_blank')}
-                          icon={ExternalLink}
-                          title="Ver Portal"
-                        />
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-danger"
+                          className="p-2 rounded-lg bg-white/5 text-muted hover:text-accent hover:bg-accent/10 transition-all border border-white/5"
+                          title="Explorar Activo"
+                        >
+                          <ExternalLink size={14} />
+                        </button>
+                        <button 
+                          className="p-2 rounded-lg bg-white/5 text-muted hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-white/5"
                           onClick={() => handleDeleteAsset(a.id, a.nombre)}
-                          icon={Trash2}
-                          title="Eliminar"
-                        />
+                          title="Eliminar Equipo"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -217,11 +220,6 @@ export const AssetManager: React.FC<AssetManagerProps> = ({
           />
         </div>
       </Modal>
-
-      <style>{`
-        .grid { display: grid; }
-        .grid-cols-2 { grid-template-columns: 1fr 1fr; }
-      `}</style>
-    </Card>
+    </div>
   );
 };

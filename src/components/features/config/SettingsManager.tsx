@@ -107,44 +107,49 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onMessage, act
   }
 
   return (
-    <div className="flex flex-col md:flex-row gap-lg">
-      <Card className="w-full md:w-64 p-sm h-fit shrink-0">
+    <div className="flex flex-col md:flex-row gap-xl animate-fade-in">
+      <div className="v-glass-card w-full md:w-64 p-sm h-fit shrink-0">
         <nav className="flex flex-col gap-xs">
           <button 
             onClick={() => setActiveTab('perfil')}
-            className={`flex items-center gap-sm p-sm rounded-lg transition-colors ${activeTab === 'perfil' ? 'bg-accent/20 text-accent' : 'hover:bg-white/5 text-muted'}`}
+            className={`flex items-center gap-sm p-3 rounded-xl transition-all ${activeTab === 'perfil' ? 'bg-accent text-white shadow-lg shadow-accent/25' : 'hover:bg-white/5 text-muted hover:text-white'}`}
           >
             <Settings size={18} />
-            <span className="font-medium">Perfil del Hotel</span>
+            <span className="text-xs font-black uppercase tracking-wider">Identidad</span>
           </button>
           <button 
             onClick={() => setActiveTab('notificaciones')}
-            className={`flex items-center gap-sm p-sm rounded-lg transition-colors ${activeTab === 'notificaciones' ? 'bg-accent/20 text-accent' : 'hover:bg-white/5 text-muted'}`}
+            className={`flex items-center gap-sm p-3 rounded-xl transition-all ${activeTab === 'notificaciones' ? 'bg-accent text-white shadow-lg shadow-accent/25' : 'hover:bg-white/5 text-muted hover:text-white'}`}
           >
             <Bell size={18} />
-            <span className="font-medium">Notificaciones</span>
+            <span className="text-xs font-black uppercase tracking-wider">Reglas</span>
           </button>
           <button 
             onClick={() => setActiveTab('textos')}
-            className={`flex items-center gap-sm p-sm rounded-lg transition-colors ${activeTab === 'textos' ? 'bg-accent/20 text-accent' : 'hover:bg-white/5 text-muted'}`}
+            className={`flex items-center gap-sm p-3 rounded-xl transition-all ${activeTab === 'textos' ? 'bg-accent text-white shadow-lg shadow-accent/25' : 'hover:bg-white/5 text-muted hover:text-white'}`}
           >
             <Type size={18} />
-            <span className="font-medium">Textos V-Nexus</span>
+            <span className="text-xs font-black uppercase tracking-wider">Portal</span>
           </button>
           <button 
             onClick={() => setActiveTab('auditoria')}
-            className={`flex items-center gap-sm p-sm rounded-lg transition-colors ${activeTab === 'auditoria' ? 'bg-accent/20 text-accent' : 'hover:bg-white/5 text-muted'}`}
+            className={`flex items-center gap-sm p-3 rounded-xl transition-all ${activeTab === 'auditoria' ? 'bg-accent text-white shadow-lg shadow-accent/25' : 'hover:bg-white/5 text-muted hover:text-white'}`}
           >
             <Shield size={18} />
-            <span className="font-medium">Auditoría (Log)</span>
+            <span className="text-xs font-black uppercase tracking-wider">Auditoría</span>
           </button>
         </nav>
-      </Card>
+      </div>
 
-      <Card className="flex-1 p-xl">
+      <div className="v-glass-card flex-1 p-xl">
         {activeTab === 'perfil' && (
-          <form onSubmit={handleSave} className="animate-fade-in flex flex-col gap-lg">
-            <h3 className="text-xl font-bold mb-md">Branding e Identidad</h3>
+          <form onSubmit={handleSave} className="animate-fade-in flex flex-col gap-xl">
+            <div className="flex items-center gap-md border-b border-white/5 pb-md mb-md">
+               <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-lg">
+                 <Settings size={20} />
+               </div>
+               <h3 className="text-lg font-black text-white tracking-tight uppercase">Branding e Identidad</h3>
+            </div>
             
             <div className="flex gap-lg items-center mb-md pb-lg border-b border-white/10">
               <div className="w-24 h-24 rounded-2xl bg-black/30 border-2 border-dashed border-white/20 flex flex-col items-center justify-center text-muted cursor-pointer hover:border-accent hover:text-accent transition-colors">
@@ -387,33 +392,39 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onMessage, act
             <h3 className="text-xl font-bold mb-md flex items-center gap-sm">
               <Shield size={20} className="text-accent"/> Registro de Actividad
             </h3>
-            <div className="bg-black/20 rounded-xl border border-white/5 overflow-hidden">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-white/5 border-b border-white/5">
-                  <tr>
-                    <th className="p-3 font-medium text-muted">Fecha y Hora</th>
-                    <th className="p-3 font-medium text-muted">Usuario</th>
-                    <th className="p-3 font-medium text-muted">Acción</th>
+            <div className="v-table-container">
+              <table className="v-table">
+                <thead>
+                  <tr className="border-b border-white/5 bg-white/5">
+                    <th className="p-4 font-black uppercase text-[10px] tracking-widest text-muted">Fecha y Hora</th>
+                    <th className="p-4 font-black uppercase text-[10px] tracking-widest text-muted">Usuario</th>
+                    <th className="p-4 font-black uppercase text-[10px] tracking-widest text-muted">Acción Realizada</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {logs.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="p-4 text-center text-muted">No hay registros recientes</td>
+                      <td colSpan={3} className="p-8 text-center text-muted text-xs uppercase tracking-widest font-bold">No hay registros recientes en la auditoría</td>
                     </tr>
                   ) : (
                     logs.map(log => (
-                      <tr key={log.id} className="hover:bg-white/[0.02]">
-                        <td className="p-3 whitespace-nowrap text-xs text-muted">
+                      <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="p-4 whitespace-nowrap text-[11px] font-bold text-muted">
                           {new Date(log.created_at).toLocaleString('es-ES')}
                         </td>
-                        <td className="p-3">
-                          <span className="font-medium">{log.perfiles?.nombre || 'Sistema'}</span>
-                          <span className="text-[10px] ml-2 px-2 py-0.5 rounded-full bg-white/10 text-muted uppercase">
-                            {log.perfiles?.rol || 'N/A'}
-                          </span>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-sm">{log.perfiles?.nombre || 'Sistema'}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-muted uppercase font-black tracking-tighter">
+                              {log.perfiles?.rol || 'SISTEMA'}
+                            </span>
+                          </div>
                         </td>
-                        <td className="p-3 font-mono text-xs text-accent">{log.accion}</td>
+                        <td className="p-4">
+                           <span className="px-3 py-1 bg-accent/10 border border-accent/20 rounded-lg text-accent text-[11px] font-black uppercase tracking-widest">
+                             {log.accion}
+                           </span>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -422,7 +433,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onMessage, act
             </div>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 };

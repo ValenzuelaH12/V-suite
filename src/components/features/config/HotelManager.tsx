@@ -97,28 +97,33 @@ export const HotelManager: React.FC = () => {
   }
 
   return (
-    <div className="space-y-lg">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-bold">Gestión de Hoteles</h2>
-          <p className="text-muted text-sm">Administra las {hotels.length} unidades independientes de la cadena.</p>
+    <div className="animate-fade-in space-y-xl">
+      <div className="v-page-header v-glass-card py-4 px-6 mb-0">
+        <div className="flex items-center gap-md">
+          <div className="p-2 bg-accent/20 text-accent rounded-lg shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+            <Building2 size={24} />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-white tracking-tight uppercase">Gestión de Hoteles</h2>
+            <p className="text-[10px] font-bold text-muted uppercase tracking-widest">{hotels.length} unidades operativas en la red</p>
+          </div>
         </div>
         <Button 
-          variant="primary" 
           onClick={() => {
             setEditingHotel(null);
             setFormData({ nombre: '', direccion: '', telefono: '', email: '', estado: 'activo' });
             setIsModalOpen(true);
           }}
+          className="bg-accent hover:bg-accent-hover text-white rounded-xl px-6 py-2 text-xs font-bold uppercase tracking-wider"
+          icon={Plus}
         >
-          <Plus size={18} />
-          <span>Nuevo Hotel</span>
+          <span>Añadir Hotel</span>
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl">
         {hotels.map(hotel => (
-          <Card key={hotel.id} className="relative group overflow-hidden border-white/5 hover:border-accent/30 transition-all duration-300">
+          <div key={hotel.id} className="v-glass-card relative group overflow-hidden border-white/5 hover:border-accent/30 transition-all duration-300 p-none">
             <div className={`absolute top-0 left-0 w-1 h-full ${hotel.estado === 'activo' ? 'bg-success' : 'bg-danger'}`} />
             
             <div className="p-lg space-y-md">
@@ -166,7 +171,7 @@ export const HotelManager: React.FC = () => {
                 </div>
               </div>
             </div>
-          </Card>
+          </div>
         ))}
       </div>
 

@@ -12,12 +12,13 @@ import {
   Filter,
   Download,
   Calendar,
-  Sparkles
+  Sparkles 
 } from 'lucide-react'
 import { aiService } from '../services/aiService'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import jsPDF from 'jspdf'
+import { Skeleton } from '../components/ui/Skeleton'
 import { 
   Chart as ChartJS, 
   CategoryScale, 
@@ -324,14 +325,14 @@ export default function VInsights() {
   }
 
   return (
-    <div className="insights-page">
-      <div className="page-header">
+    <div className="insights-page animate-fade-in">
+      <div className="v-page-header">
         <div>
-          <h1 className="page-title flex items-center gap-sm">
+          <h1 className="v-page-title">
             <BarChart3 className="text-accent" />
-            V-Insights <span className="badge badge-accent ml-sm">Beta</span>
+            V-Insights <span className="badge badge-accent ml-sm">AI</span>
           </h1>
-          <p className="page-subtitle">Analítica avanzada y toma de decisiones ejecutivas</p>
+          <p className="v-page-subtitle">Analítica avanzada y toma de decisiones ejecutivas</p>
         </div>
         <div className="flex items-center gap-md">
           <div className="select-wrapper">
@@ -362,7 +363,7 @@ export default function VInsights() {
       </div>
 
       {anomaly && (
-        <div className="glass-card mb-xl p-lg border-l-4 border-l-danger animate-fade-in" style={{ background: 'rgba(239, 68, 68, 0.05)' }}>
+        <div className="v-glass-card mb-xl p-lg border-l-4 border-l-danger animate-fade-in" style={{ background: 'rgba(239, 68, 68, 0.05)' }}>
           <div className="flex items-center gap-lg">
             <div className="p-md bg-danger/10 rounded-full text-danger border border-danger/20">
               <AlertTriangle size={24} />
@@ -378,112 +379,115 @@ export default function VInsights() {
         </div>
       )}
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center p-xl min-h-[400px]">
-          <Activity size={48} className="text-accent animate-spin mb-md" />
-          <p className="text-muted">Procesando métricas operativas...</p>
+      <div className="v-stats-grid">
+        {loading ? (
+          Array(4).fill(0).map((_, i) => (
+            <div key={i} className="v-glass-card v-stat-card">
+              <Skeleton className="h-3 w-24 mb-xs" />
+              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-3 w-32 mt-xs" />
+            </div>
+          ))
+        ) : (
+          <>
+            <div className="v-glass-card v-stat-card border-l-4 border-l-accent">
+              <span className="v-stat-label">Incidencias Totales</span>
+              <div className="v-stat-value">{summaryStats.totalIncidents}</div>
+              <div className="v-stat-footer">En el periodo seleccionado</div>
+            </div>
+            <div className="v-glass-card v-stat-card border-l-4 border-l-success">
+              <span className="v-stat-label">MTTR (Tiempo Medio)</span>
+              <div className="v-stat-value">{summaryStats.avgResolutionTime}h</div>
+              <div className="v-stat-footer">De reporte a resolución</div>
+            </div>
+            <div className="v-glass-card v-stat-card border-l-4 border-l-info">
+              <span className="v-stat-label">Eficiencia Operativa</span>
+              <div className="v-stat-value">{summaryStats.efficiencyScore}%</div>
+              <div className="v-stat-footer">Resueltas en menos de 4h</div>
+            </div>
+            <div className="v-glass-card v-stat-card border-l-4 border-l-warning">
+              <span className="v-stat-label">Zonas Críticas</span>
+              <div className="v-stat-value text-lg">{summaryStats.criticalZones.join(', ') || 'Ninguna'}</div>
+              <div className="v-stat-footer">Ubicaciones con más reportes</div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="insights-grid">
+        <div className="v-glass-card panel">
+          <div className="panel-header border-b mb-md pb-sm">
+            <div className="flex items-center gap-sm">
+              <Map size={18} className="text-accent" />
+              <h3 className="font-bold">Distribución Geográfica (Heatmap)</h3>
+            </div>
+          </div>
+          <div className="panel-body h-[350px]">
+            {loading ? <Skeleton className="h-full w-full" /> : (heatmapData && <Bar 
+              data={heatmapData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                  y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' } },
+                  x: { grid: { display: false }, ticks: { color: '#a0a0c0' } }
+                }
+              }}
+            />)}
+          </div>
         </div>
-      ) : (
-        <>
-          <div className="stats-grid mb-xl">
-            <div className="stat-card glass-card border-l-accent">
-              <span className="stat-label">Incidencias Totales</span>
-              <div className="stat-value">{summaryStats.totalIncidents}</div>
-              <div className="text-xs text-muted mt-xs">En el periodo seleccionado</div>
-            </div>
-            <div className="stat-card glass-card border-l-success">
-              <span className="stat-label">MTTR (Tiempo Medio)</span>
-              <div className="stat-value">{summaryStats.avgResolutionTime}h</div>
-              <div className="text-xs text-muted mt-xs">De reporte a resolución</div>
-            </div>
-            <div className="stat-card glass-card border-l-info">
-              <span className="stat-label">Eficiencia Operativa</span>
-              <div className="stat-value">{summaryStats.efficiencyScore}%</div>
-              <div className="text-xs text-muted mt-xs">Resueltas en menos de 4h</div>
-            </div>
-            <div className="stat-card glass-card border-l-warning">
-              <span className="stat-label">Zonas Críticas</span>
-              <div className="stat-value text-lg">{summaryStats.criticalZones.join(', ') || 'Ninguna'}</div>
-              <div className="text-xs text-muted mt-xs">Ubicaciones con más reportes</div>
+
+        <div className="v-glass-card panel">
+          <div className="panel-header border-b mb-md pb-sm">
+            <div className="flex items-center gap-sm">
+              <PieChart size={18} className="text-success" />
+              <h3 className="font-bold">Rendimiento del Equipo</h3>
             </div>
           </div>
+          <div className="panel-body h-[350px] flex items-center justify-center">
+            {loading ? <Skeleton variant="circle" className="h-64 w-64" /> : (mttrData && <Pie 
+              data={mttrData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                  legend: { 
+                    position: 'right', 
+                    labels: { color: '#a0a0c0', usePointStyle: true, font: { size: 11 } } 
+                  } 
+                }
+              }}
+            />)}
+          </div>
+        </div>
 
-          <div className="insights-grid">
-            <div className="glass-card panel">
-              <div className="panel-header border-b">
-                <div className="flex items-center gap-sm">
-                  <Map size={18} className="text-primary" />
-                  <h3>Distribución Geográfica (Heatmap)</h3>
-                </div>
-              </div>
-              <div className="panel-body p-lg h-[350px]">
-                {heatmapData && <Bar 
-                  data={heatmapData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                      y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' } },
-                      x: { grid: { display: false }, ticks: { color: '#a0a0c0' } }
-                    }
-                  }}
-                />}
-              </div>
-            </div>
-
-            <div className="glass-card panel">
-              <div className="panel-header border-b">
-                <div className="flex items-center gap-sm">
-                  <PieChart size={18} className="text-success" />
-                  <h3>Rendimiento del Equipo</h3>
-                </div>
-              </div>
-              <div className="panel-body p-lg h-[350px] flex items-center justify-center">
-                {mttrData && <Pie 
-                  data={mttrData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { 
-                      legend: { 
-                        position: 'right', 
-                        labels: { color: '#a0a0c0', usePointStyle: true, font: { size: 11 } } 
-                      } 
-                    }
-                  }}
-                />}
-              </div>
-            </div>
-
-            <div className="glass-card panel col-span-2">
-              <div className="panel-header border-b">
-                <div className="flex items-center gap-sm">
-                  <LineChart size={18} className="text-info" />
-                  <h3>Análisis de Suministros (Tendencia de Consumo)</h3>
-                </div>
-              </div>
-              <div className="panel-body p-lg h-[400px]">
-                {consumptionData && <Line 
-                  data={consumptionData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                      legend: { position: 'top', labels: { color: '#a0a0c0', usePointStyle: true } }
-                    },
-                    scales: {
-                      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' } },
-                      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' } }
-                    }
-                  }}
-                />}
-              </div>
+        <div className="v-glass-card panel col-span-2">
+          <div className="panel-header border-b mb-md pb-sm">
+            <div className="flex items-center gap-sm">
+              <LineChart size={18} className="text-info" />
+              <h3 className="font-bold">Análisis de Suministros (Tendencia de Consumo)</h3>
             </div>
           </div>
-        </>
-      )}
+          <div className="panel-body h-[400px]">
+            {loading ? <Skeleton className="h-full w-full" /> : (consumptionData && <Line 
+              data={consumptionData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                  legend: { position: 'top', labels: { color: '#a0a0c0', usePointStyle: true } }
+                },
+                scales: {
+                  y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' } },
+                  x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' } }
+                }
+              }}
+            />)}
+          </div>
+        </div>
+      </div>
 
       <style>{`
         .insights-page {

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { ClipboardList, Plus, Trash2, Calendar, Activity, CheckCircle, Clock, Layers, X, Repeat, ChevronRight, ChevronLeft, Circle, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Calendar, Activity, CheckCircle, Clock, Layers, X, Repeat, ChevronRight, ChevronLeft, Circle, AlertTriangle, ShieldCheck, Building2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { configService } from '../../../services/configService';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
 import { Badge } from '../../ui/Badge';
+import { Skeleton } from '../../ui/Skeleton';
 
 interface MaintenanceManagerProps {
   maintenance: any[];
@@ -294,61 +295,73 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
     }).length
   };
 
+  const loading = !activeHotelId || (maintenance.length === 0 && templates.length === 0 && dbCategories.length === 0);
+
   return (
     <div className="maintenance-redesign animate-fade-in flex flex-col gap-xl">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
-        <Card className="p-md relative overflow-hidden group hover-glow transition-all">
-          <div className="flex items-center gap-md">
-            <div className="p-sm rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-110 transition-transform">
-              <Calendar size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-muted uppercase tracking-tighter">Programas Activos</p>
-              <h4 className="text-2xl font-black text-white">{stats.total}</h4>
+      <div className="v-stats-grid">
+        <div className="v-stat-card v-glass-card">
+          <div className="flex flex-col">
+            <span className="v-stat-label">Programas Activos</span>
+            <div className="flex items-end gap-sm mt-xs">
+              <span className="v-stat-value text-indigo-400">{loading ? <Skeleton width="40px" height="32px" /> : stats.total}</span>
+              <Calendar size={20} className="text-indigo-400/50 mb-1" />
             </div>
           </div>
-        </Card>
+        </div>
         
-        <Card className="p-md relative overflow-hidden group hover-glow transition-all">
-          <div className="flex items-center gap-md">
-            <div className="p-sm rounded-xl bg-purple-500/10 text-purple-400 group-hover:scale-110 transition-transform">
-              <ClipboardList size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-muted uppercase tracking-tighter">Plantillas Disponibles</p>
-              <h4 className="text-2xl font-black text-white">{stats.templates}</h4>
+        <div className="v-stat-card v-glass-card">
+          <div className="flex flex-col">
+            <span className="v-stat-label">Plantillas</span>
+            <div className="flex items-end gap-sm mt-xs">
+              <span className="v-stat-value text-purple-400">{loading ? <Skeleton width="40px" height="32px" /> : stats.templates}</span>
+              <ClipboardList size={20} className="text-purple-400/50 mb-1" />
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-md relative overflow-hidden group hover-glow transition-all">
-          <div className="flex items-center gap-md">
-            <div className={`p-sm rounded-xl ${stats.urgent > 0 ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/10 text-green-400'} group-hover:scale-110 transition-transform`}>
-              <Activity size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-muted uppercase tracking-tighter">Próximos 3 días</p>
-              <h4 className={`text-2xl font-black ${stats.urgent > 0 ? 'text-orange-400' : 'text-green-400'}`}>{stats.urgent}</h4>
+        <div className="v-stat-card v-glass-card">
+          <div className="flex flex-col">
+            <span className="v-stat-label">Próximos 3 días</span>
+            <div className="flex items-end gap-sm mt-xs">
+              <span className={`v-stat-value ${stats.urgent > 0 ? 'text-orange-400' : 'text-emerald-400'}`}>
+                {loading ? <Skeleton width="40px" height="32px" /> : stats.urgent}
+              </span>
+              <Activity size={20} className={`${stats.urgent > 0 ? 'text-orange-400/50' : 'text-emerald-400/50'} mb-1`} />
             </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-md">
         <div className="flex p-1 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md">
-          <button onClick={() => setActiveSubTab('tareas')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeSubTab === 'tareas' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-muted hover:text-white'}`}>
-            <Calendar size={18} /> Tareas Programadas
+          <button 
+            onClick={() => setActiveSubTab('tareas')} 
+            className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${activeSubTab === 'tareas' ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-muted hover:text-white'}`}
+          >
+            <Calendar size={16} /> Tareas Programadas
           </button>
-          <button onClick={() => setActiveSubTab('plantillas')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeSubTab === 'plantillas' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-muted hover:text-white'}`}>
-            <ClipboardList size={18} /> Plantillas
+          <button 
+            onClick={() => setActiveSubTab('plantillas')} 
+            className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${activeSubTab === 'plantillas' ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-muted hover:text-white'}`}
+          >
+            <ClipboardList size={16} /> Plantillas
           </button>
-          <button onClick={() => setActiveSubTab('categorias')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeSubTab === 'categorias' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-muted hover:text-white'}`}>
-            <Layers size={18} /> Categorías
+          <button 
+            onClick={() => setActiveSubTab('categorias')} 
+            className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${activeSubTab === 'categorias' ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-muted hover:text-white'}`}
+          >
+            <Layers size={16} /> Categorías
           </button>
         </div>
         
         <div className="flex gap-md">
-          <Button variant="primary" onClick={() => activeSubTab === 'tareas' ? setIsAddingMaint(true) : activeSubTab === 'plantillas' ? setIsAddingTemplate(true) : setIsManagingCats(true)} icon={Plus}>
+          <Button 
+            variant="primary" 
+            onClick={() => activeSubTab === 'tareas' ? setIsAddingMaint(true) : activeSubTab === 'plantillas' ? setIsAddingTemplate(true) : setIsManagingCats(true)} 
+            icon={Plus}
+            className="rounded-xl font-bold uppercase tracking-wider text-xs px-6 py-3"
+          >
             {activeSubTab === 'tareas' ? 'Nueva Tarea' : activeSubTab === 'plantillas' ? 'Nueva Plantilla' : 'Añadir Categoría'}
           </Button>
         </div>
@@ -356,92 +369,146 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
 
       {executingTask ? (
         <div className="animate-fade-in">
-          <div className="flex justify-between items-center mb-xl bg-indigo-500/10 p-lg rounded-3xl border border-indigo-500/20 backdrop-blur-xl">
+          <div className="v-glass-card p-lg mb-xl border-accent/20 flex flex-col md:flex-row justify-between items-center gap-lg">
              <div className="flex items-center gap-lg">
-                <div className="p-3 bg-indigo-500 text-white rounded-2xl">
-                   <Activity size={24} />
+                <div className="p-4 bg-accent/20 text-accent rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.2)]">
+                   <Activity size={28} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black text-white">{executingTask.titulo}</h2>
-                  <p className="text-xs text-muted font-bold uppercase">{rooms.length} HABITACIONES TOTALES</p>
+                  <h2 className="text-2xl font-black text-white tracking-tight">{executingTask.titulo}</h2>
+                  <p className="text-[10px] text-muted font-bold uppercase tracking-widest flex items-center gap-2">
+                    <Building2 size={12} /> {rooms.length} HABITACIONES TOTALES
+                  </p>
                 </div>
              </div>
-             <button onClick={finishExecution} className="px-8 py-3 bg-white text-black font-black rounded-2xl hover:scale-105 transition-all">
-               FINALIZAR SESIÓN
+             <button 
+              onClick={finishExecution} 
+              className="px-8 py-3.5 bg-white text-black font-black rounded-2xl hover:scale-105 transition-all text-xs uppercase tracking-widest shadow-xl"
+             >
+               Finalizar Sesión
              </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {rooms.map(room => {
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            {loadingRooms ? (
+              Array(12).fill(0).map((_, i) => (
+                <div key={i} className="v-glass-card p-lg flex flex-col items-center gap-3">
+                  <Skeleton variant="circle" width="48px" height="48px" />
+                  <Skeleton width="60%" height="20px" />
+                </div>
+              ))
+            ) : rooms.map(room => {
               const inspection = inspectedRooms[room.id];
               return (
                 <button
                   key={room.id}
                   onClick={() => handleOpenInspection(room)}
-                  className={`relative p-lg rounded-3xl border transition-all flex flex-col items-center gap-2 group ${
+                  className={`relative p-lg rounded-3xl border transition-all flex flex-col items-center gap-3 group ${
                     inspection?.status === 'ok' ? 'bg-emerald-500/10 border-emerald-500/30' : 
                     inspection?.status === 'issue' ? 'bg-orange-500/10 border-orange-500/30' : 
-                    'bg-white/5 border-white/5 hover:border-white/20'
+                    'v-glass-card hover:border-accent/40 hover:scale-105'
                   }`}
                 >
-                  <div className={`p-3 rounded-2xl ${
+                  <div className={`p-4 rounded-2xl transition-all shadow-lg ${
                     inspection?.status === 'ok' ? 'bg-emerald-500 text-white' : 
-                    inspection?.status === 'issue' ? 'bg-amber-500 text-white' : 'bg-white/5 text-muted'
+                    inspection?.status === 'issue' ? 'bg-amber-500 text-white' : 'bg-white/5 text-muted group-hover:bg-accent group-hover:text-white'
                   }`}>
                     {inspection?.status === 'issue' ? <AlertTriangle size={24} /> : <ShieldCheck size={24} />}
                   </div>
-                  <span className="text-xl font-black text-white">{room.nombre}</span>
-                  {inspection && <div className="absolute top-2 right-2"><CheckCircle size={14} className={inspection.status === 'ok' ? 'text-emerald-400' : 'text-amber-400'} /></div>}
+                  <span className="text-lg font-black text-white tracking-tighter">{room.nombre}</span>
+                  {inspection && (
+                    <div className="absolute top-3 right-3">
+                      <CheckCircle size={16} className={inspection.status === 'ok' ? 'text-emerald-400' : 'text-amber-400'} />
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
         </div>
       ) : activeSubTab === 'tareas' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {maintenance.map(m => (
-            <Card key={m.id} className="maintenance-card group p-xl border-white/5 bg-black/40">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {loading ? (
+            Array(3).fill(0).map((_, i) => (
+              <div key={i} className="v-glass-card p-xl flex flex-col gap-4">
+                <Skeleton variant="circle" width="48px" height="48px" />
+                <Skeleton width="80%" height="28px" />
+                <Skeleton width="100%" height="40px" />
+                <Skeleton width="100%" height="48px" />
+              </div>
+            ))
+          ) : maintenance.map(m => (
+            <div key={m.id} className="v-glass-card group p-xl flex flex-col relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full -translate-y-16 translate-x-16 blur-3xl group-hover:bg-accent/10 transition-all" />
               <div className="flex justify-between items-start mb-lg">
-                <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400"><Calendar size={24} /></div>
-                <Badge variant="success">ACTIVO</Badge>
+                <div className="p-3.5 rounded-2xl bg-accent/10 text-accent shadow-inner"><Calendar size={24} /></div>
+                <Badge variant="success" className="bg-accent/20 text-accent border-accent/20 text-[10px] tracking-tighter">ACTIVA</Badge>
               </div>
-              <h4 className="text-xl font-black text-white mb-xs uppercase">{m.titulo}</h4>
-              <p className="text-xs text-muted mb-xl">{m.descripcion || 'Sin descripción.'}</p>
-              <div className="flex gap-3 mb-xl">
-                <Button variant="primary" className="flex-1 bg-emerald-600" onClick={() => startExecution(m)} icon={Activity}>INICIAR MANTENIMIENTO</Button>
-                <button onClick={() => configService.delete('mantenimiento_preventivo', m.id).then(onRefresh)} className="p-3 rounded-xl bg-white/5 hover:text-danger text-muted"><Trash2 size={16} /></button>
+              <h4 className="text-xl font-black text-white mb-2 leading-tight">{m.titulo}</h4>
+              <p className="text-xs text-muted mb-8 line-clamp-2 leading-relaxed">{m.descripcion || 'Sin descripción detallada para esta tarea.'}</p>
+              
+              <div className="flex items-center gap-4 mt-auto">
+                <button 
+                  onClick={() => startExecution(m)}
+                  className="flex-1 py-3.5 bg-accent hover:bg-accent-hover text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
+                >
+                  <Activity size={14} /> Iniciar Tarea
+                </button>
+                <button 
+                  onClick={() => configService.delete('mantenimiento_preventivo', m.id).then(onRefresh)} 
+                  className="p-3.5 rounded-xl bg-white/5 hover:bg-rose-500/10 text-muted hover:text-rose-400 border border-white/5 transition-all"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       ) : activeSubTab === 'plantillas' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {templates.map(t => (
-            <Card key={t.id} className="template-card p-xl border-white/5 bg-black/40">
-              <div className="flex justify-between items-center mb-lg">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center"><ClipboardList size={20} /></div>
-                <span className="text-[10px] font-black text-muted uppercase">{t.items?.length || 0} PUNTOS</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {loading ? (
+            Array(3).fill(0).map((_, i) => (
+              <div key={i} className="v-glass-card p-xl">
+                <Skeleton width="100%" height="24px" />
+                <Skeleton width="60%" height="16px" className="mt-2" />
               </div>
-              <h4 className="text-lg font-black text-white mb-md">{t.nombre}</h4>
-              <div className="flex justify-end pt-md border-t border-white/5">
-                <button onClick={() => configService.delete('mantenimiento_plantillas', t.id).then(onRefresh)} className="p-2 rounded-lg hover:text-danger text-muted transition-all"><Trash2 size={16} /></button>
+            ))
+          ) : templates.map(t => (
+            <div key={t.id} className="v-glass-card group p-xl border-white/5 hover:border-accent/30 transition-all">
+              <div className="flex justify-between items-center mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center shadow-inner">
+                  <ClipboardList size={22} />
+                </div>
+                <span className="text-[10px] font-black text-white bg-purple-500/20 px-3 py-1 rounded-full uppercase tracking-tighter">
+                  {t.items?.length || 0} Puntos de revisión
+                </span>
               </div>
-            </Card>
+              <h4 className="text-lg font-black text-white mb-6 group-hover:text-accent transition-colors">{t.nombre}</h4>
+              <div className="flex justify-end pt-4 border-t border-white/5">
+                <button onClick={() => configService.delete('mantenimiento_plantillas', t.id).then(onRefresh)} className="p-2.5 rounded-xl hover:bg-rose-500/10 text-muted hover:text-rose-400 transition-all"><Trash2 size={16} /></button>
+              </div>
+            </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {dbCategories.map(cat => (
-            <Card key={cat.id} className="template-card p-xl border-white/5 bg-black/40">
-              <div className="flex justify-between items-center mb-lg">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center"><Layers size={20} /></div>
-                <span className="text-[10px] font-black text-muted uppercase">{cat.subcategorias?.length || 0} HIJOS</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {loading ? (
+             Array(3).fill(0).map((_, i) => <Skeleton key={i} height="120px" className="v-glass-card" />)
+          ) : dbCategories.map(cat => (
+            <div key={cat.id} className="v-glass-card group p-xl border-white/5 hover:border-accent/30 transition-all">
+              <div className="flex justify-between items-center mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shadow-inner">
+                  <Layers size={22} />
+                </div>
+                <span className="text-[10px] font-black text-white bg-amber-500/20 px-3 py-1 rounded-full uppercase tracking-tighter">
+                  {cat.subcategorias?.length || 0} Subcategorías
+                </span>
               </div>
-              <h4 className="text-lg font-black text-white mb-md">{cat.nombre}</h4>
-              <div className="flex justify-end pt-md border-t border-white/5">
-                <button onClick={() => handleDeleteCategory(cat.id)} className="p-2 rounded-lg hover:text-danger text-muted"><Trash2 size={16} /></button>
+              <h4 className="text-lg font-black text-white mb-6 group-hover:text-accent transition-colors">{cat.nombre}</h4>
+              <div className="flex justify-end pt-4 border-t border-white/5">
+                <button onClick={() => handleDeleteCategory(cat.id)} className="p-2.5 rounded-xl hover:bg-rose-500/10 text-muted hover:text-rose-400 transition-all"><Trash2 size={16} /></button>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       )}

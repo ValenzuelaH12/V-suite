@@ -40,18 +40,18 @@ export const NexusConfig: React.FC<NexusConfigProps> = ({
   });
 
   return (
-    <div className="nexus-container animate-fade-in">
-      <Card className="nexus-header-card mb-lg overflow-hidden relative p-none">
+    <div className="animate-fade-in space-y-xl">
+      <div className="v-glass-card p-none overflow-hidden relative">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full -mr-32 -mt-32" />
-        <div className="panel-header border-b p-xl relative z-10">
+        <div className="v-page-header border-b border-white/5 bg-white/5 p-xl relative z-10 mb-0">
           <div className="flex justify-between items-center w-full">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
                 <Smartphone size={24} />
               </div>
               <div>
-                <h3 className="text-xl font-black tracking-tight text-white">V-Nexus: Portal Digital</h3>
-                <p className="text-sm text-muted">Gestión de QRs por planta y zona</p>
+                <h3 className="text-xl font-black tracking-tight text-white uppercase">V-Nexus: Portal Digital</h3>
+                <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Despliegue de inteligencia ambiental mediante QR</p>
               </div>
             </div>
             <div className="flex gap-md">
@@ -117,43 +117,40 @@ export const NexusConfig: React.FC<NexusConfigProps> = ({
             ))}
           </div>
         </div>
-      </Card>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-xl">
         {filteredRooms.map((h: any) => {
           const zonaName = zones.find((z: any) => z.id === h.zona_id)?.nombre || 'General';
           const portalUrl = `${window.location.origin}/guest/${activeHotelId || 'default'}/${h.nombre}`;
           const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(portalUrl)}`;
           
           return (
-            <div key={h.id} className="nexus-room-card glass-card hover-glow">
-              <div className="room-card-header">
-                <div className="room-info">
-                  <span className="room-label">Huésped</span>
-                  <h4 className="room-number">Hab. {h.nombre}</h4>
-                  <span className="room-zone-badge">{zonaName}</span>
+            <div key={h.id} className="v-glass-card hover:border-accent/40 transition-all p-5 flex flex-col gap-4 group">
+              <div className="flex justify-between items-start">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-accent uppercase tracking-widest">Punto de Acceso</span>
+                  <h4 className="text-xl font-black text-white tracking-tighter mt-1">HAB. {h.nombre}</h4>
+                  <span className="text-[9px] font-bold text-muted bg-white/5 py-1 px-2 rounded-md w-fit mt-2 border border-white/5 uppercase tracking-tighter">{zonaName}</span>
                 </div>
-                <div className="room-qr-mini" onClick={() => window.open(qrUrl, '_blank')}>
-                  <img src={qrUrl} alt={`QR ${h.nombre}`} />
-                  <div className="qr-overlay">
-                    <QrCode size={16} />
-                  </div>
+                <div className="w-16 h-16 bg-white rounded-xl p-1 shadow-lg hover:scale-110 transition-transform cursor-pointer" onClick={() => window.open(qrUrl, '_blank')}>
+                  <img src={qrUrl} alt={`QR ${h.nombre}`} className="w-full h-full rounded-lg" />
                 </div>
               </div>
-              <div className="room-card-actions">
+              <div className="grid grid-cols-2 gap-2 mt-2">
                 <button 
-                  className="nexus-btn-secondary"
+                  className="flex items-center justify-center gap-2 h-9 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black text-muted uppercase tracking-tighter hover:bg-white/10 hover:text-white transition-all"
                   onClick={() => { navigator.clipboard.writeText(portalUrl); alert('URL Copiada'); }}
                 >
-                  <RefreshCw size={14} /> <span>URL</span>
+                  <RefreshCw size={12} /> <span>Link</span>
                 </button>
                 <a 
                   href={qrUrl} 
                   target="_blank" 
                   rel="noreferrer" 
-                  className="nexus-btn-primary"
+                  className="flex items-center justify-center gap-2 h-9 rounded-xl bg-accent text-white text-[10px] font-black uppercase tracking-widest hover:bg-accent-hover shadow-lg shadow-accent/20 transition-all"
                 >
-                  <BookOpen size={14} /> <span>PDF QR</span>
+                  <BookOpen size={12} /> <span>Ver QR</span>
                 </a>
               </div>
             </div>
@@ -161,34 +158,6 @@ export const NexusConfig: React.FC<NexusConfigProps> = ({
         })}
       </div>
 
-      <style>{`
-        .nexus-header-card { border-radius: 24px; }
-        .floor-btn { 
-          padding: 8px 16px; border-radius: 12px; background: rgba(255,255,255,0.03); 
-          border: 1px solid rgba(255,255,255,0.08); color: var(--color-text-muted); 
-          font-weight: 700; font-size: 0.75rem; transition: all 0.2s;
-        }
-        .floor-btn.active { background: var(--color-accent); color: white; border-color: var(--color-accent); }
-        .filter-chip {
-          padding: 4px 12px; border-radius: 16px; background: transparent; border: 1px solid rgba(255,255,255,0.1);
-          color: var(--color-text-muted); font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
-        }
-        .filter-chip.active { background: rgba(99,102,241,0.1); border-color: var(--color-accent); color: var(--color-accent); }
-        .stat-pill { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(255,255,255,0.03); border-radius: 12px; }
-        .nexus-room-card { padding: 20px !important; border-radius: 20px; display: flex; flex-direction: column; gap: 16px; }
-        .room-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--color-accent); }
-        .room-number { font-size: 1.25rem; font-weight: 900; color: white; margin: 2px 0; }
-        .room-zone-badge { font-size: 0.65rem; color: var(--color-text-muted); background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 6px; }
-        .room-qr-mini { width: 64px; height: 64px; background: white; border-radius: 12px; padding: 4px; position: relative; }
-        .room-qr-mini img { width: 100%; height: 100%; border-radius: 8px; }
-        .qr-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; border-radius: 12px; color: white; }
-        .room-qr-mini:hover .qr-overlay { opacity: 1; }
-        .room-card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .nexus-btn-primary, .nexus-btn-secondary { height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.7rem; font-weight: 700; border: none; cursor: pointer; }
-        .nexus-btn-primary { background: var(--color-accent); color: white; }
-        .nexus-btn-secondary { background: rgba(255,255,255,0.05); color: var(--color-text-muted); border: 1px solid rgba(255,255,255,0.1); }
-        .nexus-search-input { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 8px 14px; border-radius: 12px; font-size: 0.75rem; color: white; width: 180px; }
-      `}</style>
     </div>
   );
 };

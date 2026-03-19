@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { Skeleton } from '../components/ui/Skeleton'
 
 export default function Lecturas() {
   const { profile, activeHotelId } = useAuth()
@@ -303,11 +304,14 @@ export default function Lecturas() {
   }
 
   return (
-    <div className="lecturas-page">
-      <div className="page-header">
+    <div className="lecturas-page animate-fade-in">
+      <div className="v-page-header">
         <div>
-          <h1 className="page-title">Lecturas de Suministros</h1>
-          <p className="page-subtitle">Control y comparación de consumo diario</p>
+          <h1 className="v-page-title">
+             <Activity className="text-accent" />
+             Lecturas de Suministros
+          </h1>
+          <p className="v-page-subtitle">Control y comparación de consumo diario</p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsAdding(true)}>
           <Plus size={20} />
@@ -324,32 +328,38 @@ export default function Lecturas() {
         </div>
       )}
 
-      <div className="summary-grid mb-xl">
-        {contadores.map(contador => {
+      <div className="v-stats-grid">
+        {loading ? (
+          Array(3).fill(0).map((_, i) => (
+            <div key={i} className="v-glass-card v-stat-card">
+              <Skeleton className="h-3 w-24 mb-xs" />
+              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-3 w-40 mt-xs" />
+            </div>
+          ))
+        ) : contadores.map(contador => {
           const meterReadings = lecturas.filter(l => l.contador_id === contador.id)
           const last = meterReadings[0]
           
           return (
-            <div key={contador.id} className="glass-card stat-card">
-              <div className="stat-header">
-                <div className="stat-icon-wrapper">
+            <div key={contador.id} className="v-glass-card v-stat-card">
+              <div className="flex justify-between items-start mb-sm">
+                <span className="v-stat-label">{contador.tipo}</span>
+                <div className="p-xs bg-white/5 rounded-lg">
                   {getIcon(contador.tipo)}
                 </div>
-                <div className="flex flex-column">
-                  <span className="stat-label">{contador.tipo.toUpperCase()}</span>
-                  <span className="text-xs font-bold whitespace-nowrap overflow-hidden text-ellipsis" style={{maxWidth: '120px'}} title={contador.nombre}>
-                    {contador.nombre}
-                  </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-muted font-bold uppercase mb-xs truncate" title={contador.nombre}>{contador.nombre}</span>
+                <div className="v-stat-value">
+                  {last ? last.valor.toLocaleString() : '---'} 
+                  <span className="text-sm text-muted ml-xs font-medium">{getUnit(contador.tipo)}</span>
                 </div>
               </div>
-              <div className="stat-value">
-                {last ? last.valor.toLocaleString() : '---'} 
-                <span className="stat-unit">{getUnit(contador.tipo)}</span>
-              </div>
               {last && last.consumo > 0 && (
-                <div className="stat-footer mt-xs">
-                  <span className="text-xs text-muted">Consumo actual: </span>
-                  <span className="font-bold text-accent">{last.consumo.toFixed(2)} {getUnit(contador.tipo)}</span>
+                <div className="v-stat-footer flex items-center gap-xs">
+                  <span className="text-accent font-bold">+{last.consumo.toFixed(2)}</span>
+                  <span>{getUnit(contador.tipo)} registrados hoy</span>
                 </div>
               )}
             </div>
@@ -358,44 +368,38 @@ export default function Lecturas() {
       </div>
 
       {/* Barra de filtros */}
-      <div className="glass-card mb-lg px-lg py-md flex items-center gap-md flex-wrap">
+      <div className="v-glass-card mb-lg px-lg py-md flex items-center gap-md flex-wrap">
         <div className="flex items-center gap-sm">
-          <span className="text-xs text-muted font-bold uppercase">Tipo:</span>
+          <span className="text-[10px] text-muted font-bold uppercase tracking-wider">Filtrar por Tipo:</span>
           {(['all', 'agua', 'gas', 'luz'] as const).map(t => (
             <button key={t} 
-              className={`btn btn-sm ${filterType === t ? (t === 'all' ? 'btn-primary' : '') : 'btn-ghost'}`}
+              className={`btn btn-sm ${filterType === t ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setFilterType(t)}
-              style={filterType === t && t !== 'all' ? {
-                background: t === 'agua' ? 'rgba(6,182,212,0.2)' : t === 'gas' ? 'rgba(245,158,11,0.2)' : 'rgba(99,102,241,0.2)',
-                borderColor: t === 'agua' ? '#06b6d4' : t === 'gas' ? '#f59e0b' : '#6366f1',
-                color: t === 'agua' ? '#2dd4bf' : t === 'gas' ? '#fbbf24' : '#a5b4fc',
-                border: '1px solid'
-              } : {}}
             >
               {t === 'all' ? 'Todos' : t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-sm ml-auto">
-          <span className="text-xs text-muted font-bold uppercase">Desde:</span>
-          <input type="date" className="input" style={{ width: '150px', padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+          <span className="text-[10px] text-muted font-bold uppercase tracking-wider">Rango:</span>
+          <input type="date" className="input" style={{ width: '150px', padding: '0.4rem 0.6rem', fontSize: '0.75rem' }}
             value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-          <span className="text-xs text-muted font-bold uppercase">Hasta:</span>
-          <input type="date" className="input" style={{ width: '150px', padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+          <span className="text-muted">–</span>
+          <input type="date" className="input" style={{ width: '150px', padding: '0.4rem 0.6rem', fontSize: '0.75rem' }}
             value={dateTo} onChange={e => setDateTo(e.target.value)} />
           {(dateFrom || dateTo || filterType !== 'all') && (
             <button className="btn btn-ghost btn-sm text-danger" onClick={() => { setDateFrom(''); setDateTo(''); setFilterType('all'); }}>
-              <X size={14} /> Limpiar
+              <X size={14} /> 
             </button>
           )}
         </div>
       </div>
 
-      <div className="glass-card table-panel">
+      <div className="v-table-container">
         <div className="panel-header border-b flex justify-between items-center px-lg py-md">
           <div className="flex items-center gap-md">
             <Calendar size={20} className="text-accent" />
-            <h3 className="m-0">Historial de Mediciones</h3>
+            <h3 className="m-0 font-bold">Historial de Mediciones</h3>
           </div>
           <div className="relative">
             <button 
@@ -404,11 +408,11 @@ export default function Lecturas() {
               title="Exportar Lecturas"
             >
               <Download size={14} />
-              <span className="hidden sm:inline">Exportar</span>
+              <span>Exportar</span>
             </button>
             
             {showExportMenu && (
-              <div className="absolute right-0 mt-sm w-44 glass-card border border-white/10 rounded-lg shadow-xl overflow-hidden z-20 animate-fade-in">
+              <div className="absolute right-0 mt-sm w-44 v-glass-card p-none rounded-lg shadow-xl overflow-hidden z-20 animate-fade-in">
                 <button 
                   className="w-full text-left px-md py-sm hover:bg-white/5 flex items-center gap-sm transition-colors text-xs"
                   onClick={exportToCSV}
@@ -427,76 +431,76 @@ export default function Lecturas() {
             )}
           </div>
         </div>
-        <div className="panel-body p-none">
-          {loading ? (
-            <div className="loading-state p-xl text-center">
-              <Activity className="animate-spin text-accent mb-md" size={32} />
-              <p>Cargando lecturas...</p>
-            </div>
-          ) : (
-            <table className="config-table">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Contador</th>
-                  <th>Tipo</th>
-                  <th>Valor Contador</th>
-                  <th>Consumo</th>
-                  <th>Registrado por</th>
-                  <th style={{ width: '90px', textAlign: 'center' }}>Acciones</th>
+        
+        {loading ? (
+          <div className="p-xl space-y-md">
+            {Array(5).fill(0).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : (
+          <table className="v-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Contador</th>
+                <th>Tipo</th>
+                <th>Valor Contador</th>
+                <th>Consumo</th>
+                <th>Registrado por</th>
+                <th style={{ width: '90px', textAlign: 'center' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const filtered = lecturas.filter(l => {
+                  if (filterType !== 'all' && l.tipo !== filterType) return false
+                  if (dateFrom && l.fecha < dateFrom) return false
+                  if (dateTo && l.fecha > dateTo) return false
+                  return true
+                })
+                return filtered.length > 0 ? filtered.map(l => (
+                <tr key={l.id} className={l.notas?.includes('[AUTO-ALERTA]') ? 'bg-warning/10 transition-colors' : ''}>
+                  <td><strong>{new Date(l.fecha).toLocaleDateString()}</strong></td>
+                  <td><span className="font-bold">{l.contadores?.nombre || '---'}</span></td>
+                  <td>
+                    <div className="flex items-center gap-sm capitalize">
+                      {getIcon(l.tipo)}
+                      {l.tipo}
+                    </div>
+                  </td>
+                  <td>{l.valor.toLocaleString()} {getUnit(l.tipo)}</td>
+                  <td>
+                    {l.consumo > 0 ? (
+                      <div className="flex items-center gap-xs text-danger font-bold">
+                        <ArrowUpRight size={14} />
+                        {l.consumo.toFixed(2)} {getUnit(l.tipo)}
+                      </div>
+                    ) : (
+                      <span className="text-muted text-xs">Primer registro</span>
+                    )}
+                  </td>
+                  <td className="text-muted text-sm">{l.perfiles?.nombre || '---'}</td>
+                  <td>
+                    <div className="flex items-center justify-center gap-xs">
+                      <button className="btn-icon btn-ghost btn-sm" title="Editar" onClick={() => setEditingReading({ id: l.id, valor: l.valor, fecha: l.fecha, contador_id: l.contador_id })}>
+                        <Edit2 size={14} className="text-accent" />
+                      </button>
+                      <button className="btn-icon btn-ghost btn-sm" title="Eliminar" onClick={() => handleDelete(l.id)}>
+                        <Trash2 size={14} className="text-danger opacity-70" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  const filtered = lecturas.filter(l => {
-                    if (filterType !== 'all' && l.tipo !== filterType) return false
-                    if (dateFrom && l.fecha < dateFrom) return false
-                    if (dateTo && l.fecha > dateTo) return false
-                    return true
-                  })
-                  return filtered.length > 0 ? filtered.map(l => (
-                  <tr key={l.id} className={l.notas?.includes('[AUTO-ALERTA]') ? 'bg-warning/10 transition-colors' : ''}>
-                    <td><strong>{new Date(l.fecha).toLocaleDateString()}</strong></td>
-                    <td><span className="font-bold">{l.contadores?.nombre || '---'}</span></td>
-                    <td>
-                      <div className="flex items-center gap-sm capitalize">
-                        {getIcon(l.tipo)}
-                        {l.tipo}
-                      </div>
-                    </td>
-                    <td>{l.valor.toLocaleString()} {getUnit(l.tipo)}</td>
-                    <td>
-                      {l.consumo > 0 ? (
-                        <div className="flex items-center gap-xs text-danger font-bold">
-                          <ArrowUpRight size={14} />
-                          {l.consumo.toFixed(2)} {getUnit(l.tipo)}
-                        </div>
-                      ) : (
-                        <span className="text-muted text-xs">Primer registro</span>
-                      )}
-                    </td>
-                    <td className="text-muted text-sm">{l.perfiles?.nombre || '---'}</td>
-                    <td>
-                      <div className="flex items-center gap-xs" style={{ justifyContent: 'center' }}>
-                        <button className="btn-icon btn-ghost" title="Editar" onClick={() => setEditingReading({ id: l.id, valor: l.valor, fecha: l.fecha, contador_id: l.contador_id })}>
-                          <Edit2 size={14} className="text-accent" />
-                        </button>
-                        <button className="btn-icon btn-ghost" title="Eliminar" onClick={() => handleDelete(l.id)}>
-                          <Trash2 size={14} style={{ color: '#f87171' }} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={7} className="text-center p-xl text-muted">No hay lecturas para los filtros seleccionados.</td>
-                  </tr>
-                )
-                })()}
-              </tbody>
-            </table>
-          )}
-        </div>
+              )) : (
+                <tr>
+                  <td colSpan={7} className="text-center p-xl text-muted">No hay lecturas para los filtros seleccionados.</td>
+                </tr>
+              )
+              })()}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {isAdding && (
@@ -612,18 +616,7 @@ export default function Lecturas() {
         </div>
       )}
 
-      <style>{`
-        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--spacing-lg); }
-        .stat-header { display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-md); }
-        .stat-icon-wrapper { padding: var(--spacing-sm); background: rgba(255, 255, 255, 0.05); border-radius: var(--radius-md); }
-        .stat-label { font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted); letter-spacing: 0.05em; }
-        .stat-value { font-size: 1.75rem; font-weight: 700; color: var(--color-text); }
-        .stat-unit { font-size: 1rem; color: var(--color-text-muted); margin-left: var(--spacing-xs); font-weight: 500; }
-        
-        .loading-state { min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      `}</style>
+
     </div>
   )
 }

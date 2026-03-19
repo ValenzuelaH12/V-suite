@@ -78,53 +78,60 @@ export const MeterManager: React.FC<MeterManagerProps> = ({
   };
 
   return (
-    <Card className="table-panel">
-      <div className="panel-header border-b">
+    <div className="v-glass-card p-none overflow-hidden animate-fade-in">
+      <div className="v-page-header border-b border-white/5 bg-white/5 py-4 px-6 mb-0">
         <div className="flex items-center gap-md">
-          <Activity size={20} className="text-accent" />
-          <h3 className="text-lg font-semibold">Contadores y Suministros</h3>
+          <div className="p-2 bg-amber-500/20 text-amber-500 rounded-lg">
+            <Activity size={20} />
+          </div>
+          <h3 className="text-lg font-black text-white tracking-tight uppercase">Lecturas y Suministros</h3>
         </div>
-        <Button size="sm" onClick={() => setIsAddingMeter(true)} icon={Plus}>
+        <Button size="sm" onClick={() => setIsAddingMeter(true)} icon={Plus} className="bg-accent hover:bg-accent-hover text-white rounded-xl px-6 py-2 text-xs font-bold uppercase tracking-wider">
           Nuevo Contador
         </Button>
       </div>
 
-      <div className="panel-body p-none">
-        <div className="table-responsive">
-          <table className="config-table">
+      <div className="p-none">
+        <div className="v-table-container">
+          <table className="v-table">
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Tipo</th>
-                <th>Acciones</th>
+                <th className="text-left font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Identificador</th>
+                <th className="text-left font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Tipo</th>
+                <th className="text-right font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {counters.map(c => (
-                <tr key={c.id}>
-                  <td className="font-medium">{c.nombre}</td>
-                  <td>
-                    <Badge variant={c.tipo === 'luz' ? 'warning' : c.tipo === 'agua' ? 'info' : 'neutral'}>
-                      {c.tipo?.toUpperCase()}
-                    </Badge>
+               {counters.map(c => (
+                <tr key={c.id} className="group hover:bg-white/5 transition-all border-b border-white/5 last:border-0">
+                  <td className="py-4 px-6">
+                    <span className="text-sm font-semibold text-white">{c.nombre}</span>
                   </td>
-                  <td>
-                    <div className="flex gap-sm">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                  <td className="py-4 px-6">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${
+                      c.tipo === 'luz' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 
+                      c.tipo === 'agua' ? 'bg-sky-500/10 text-sky-500 border-sky-500/20' : 
+                      'bg-white/5 text-muted border-white/10'
+                    }`}>
+                      {c.tipo?.toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button 
                         onClick={() => { setEditingMeter(c); setIsEditingMeter(true); }}
-                        icon={RefreshCw}
-                        title="Editar"
-                      />
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-danger"
+                        className="p-2 rounded-lg bg-white/5 text-muted hover:text-accent hover:bg-accent/10 transition-all border border-white/5"
+                        title="Modificar Contador"
+                      >
+                        <RefreshCw size={14} />
+                      </button>
+                      <button 
+                        className="p-2 rounded-lg bg-white/5 text-muted hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-white/5"
                         onClick={() => handleDeleteMeter(c.id, c.nombre)}
-                        icon={Trash2}
-                        title="Eliminar"
-                      />
+                        title="Eliminar Registro"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -200,6 +207,6 @@ export const MeterManager: React.FC<MeterManagerProps> = ({
           </form>
         )}
       </Modal>
-    </Card>
+    </div>
   );
 };

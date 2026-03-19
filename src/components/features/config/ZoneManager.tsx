@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, MapPin, Calendar, DoorOpen, Plus, Trash2, Hash, X } from 'lucide-react';
+import { Layers, MapPin, Calendar, DoorOpen, Plus, Trash2, Hash, X, Navigation } from 'lucide-react';
 import { configService } from '../../../services/configService';
 import { Zone, Room } from '../../../types';
 import { Button } from '../../ui/Button';
@@ -114,25 +114,23 @@ export const ZoneManager: React.FC<ZoneManagerProps> = ({
             >
               <div className="zona-card-header">
                 <div className="zona-card-identity">
-                  <div className="zona-avatar" style={{ background: `${accent}22`, color: accent, border: `2px solid ${accent}44` }}>
-                    <MapPin size={18} />
+                  <div className="zona-avatar" style={{ background: `${accent}20`, color: accent }}>
+                    <Layers size={18} />
                   </div>
                   <div>
                     <h4 className="zona-card-name">{z.nombre}</h4>
                     <span className="zona-card-date">
-                      <Calendar size={10} /> {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      <Hash size={10} /> 
+                      Sistema V-Suite
                     </span>
                   </div>
                 </div>
                 <div className="zona-card-actions">
-                  <div className="zona-counter" style={{ background: `${accent}18`, color: accent, border: `1px solid ${accent}33` }}>
-                    <DoorOpen size={13} />
+                  <div className="zona-counter" style={{ background: `${accent}15`, color: accent }}>
+                    <DoorOpen size={14} />
                     <span>{zonHabs.length}</span>
                   </div>
-                  <button 
-                    className="zona-delete-btn" 
-                    onClick={() => handleDelete('zonas', z.id, z.nombre)}
-                  >
+                  <button onClick={() => handleDelete('zonas', z.id, z.nombre)} className="zona-delete-btn">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -140,28 +138,23 @@ export const ZoneManager: React.FC<ZoneManagerProps> = ({
 
               <div className="zona-habs-section">
                 <div className="zona-habs-label">
-                  <Hash size={11} /> Habitaciones / Sitios
+                  <Navigation size={10} />
+                  HABITACIONES / DEPENDENCIAS
                 </div>
                 <div className="zona-habs-grid">
                   {zonHabs.map(h => (
-                    <div key={h.id} className="zona-hab-chip" style={{ '--chip-accent': accent } as any}>
-                      <DoorOpen size={12} className="zona-hab-icon" />
-                      <span className="zona-hab-name">{h.nombre}</span>
+                    <div key={h.id} className="zona-hab-chip group">
+                      <span>{h.nombre}</span>
                       <button 
-                        className="zona-hab-delete"
+                        className="zona-hab-delete opacity-0 group-hover:opacity-100"
                         onClick={() => handleDelete('habitaciones', h.id, `Habitación ${h.nombre}`)}
                       >
-                        <X size={10} />
+                        <X size={12} />
                       </button>
                     </div>
                   ))}
-                  <button 
-                    className="zona-hab-add" 
-                    style={{ borderColor: `${accent}44`, color: accent }}
-                    onClick={() => { setSelectedZone(z); setNewRoom({...newRoom, zona_id: z.id}); setIsAddingRoom(true); }}
-                  >
-                    <Plus size={14} />
-                    <span>Añadir</span>
+                  <button className="zona-hab-add" style={{ borderColor: `${accent}40`, color: accent }} onClick={() => { setSelectedZone(z); setNewRoom({...newRoom, zona_id: z.id}); setIsAddingRoom(true); }}>
+                    <Plus size={14} /> <span>Añadir</span>
                   </button>
                 </div>
               </div>

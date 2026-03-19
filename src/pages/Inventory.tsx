@@ -20,6 +20,7 @@ import { supabase } from '../lib/supabase'
 import { inventoryService } from '../services/inventoryService'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { Skeleton } from '../components/ui/Skeleton'
 
 export default function Inventory() {
   const { profile, activeHotelId } = useAuth()
@@ -187,11 +188,14 @@ export default function Inventory() {
   }
 
   return (
-    <div className="inventory-page">
-      <div className="page-header">
+    <div className="inventory-page animate-fade-in">
+      <div className="v-page-header">
         <div>
-          <h1 className="page-title">Inventario y Suministros</h1>
-          <p className="page-subtitle">Control de stock de artículos operativos</p>
+          <h1 className="v-page-title">
+            <Package className="text-accent" />
+            Inventario y Suministros
+          </h1>
+          <p className="v-page-subtitle">Control de stock de artículos operativos</p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
           <Plus size={18} />
@@ -199,7 +203,7 @@ export default function Inventory() {
         </button>
       </div>
 
-      <div className="inventory-toolbar glass-card mb-lg px-lg py-md flex justify-between items-center gap-md">
+      <div className="inventory-toolbar v-glass-card mb-lg px-lg py-md flex justify-between items-center gap-md">
         <div className="search-bar relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={18} />
           <input 
@@ -259,57 +263,82 @@ export default function Inventory() {
       </div>
 
       <div className="inventory-grid">
-        {filteredItems.map(item => (
-          <div key={item.id} className={`inventory-card glass-card ${item.stock_actual <= item.stock_minimo ? 'border-danger/30' : ''}`}>
-            <div className="flex justify-between items-start mb-md">
-              <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-wider text-muted font-bold mb-xs">{item.categoria}</span>
-                <h3 className="font-semibold text-lg">{item.nombre}</h3>
+        {loading ? (
+          Array(6).fill(0).map((_, i) => (
+            <div key={i} className="v-glass-card p-lg h-[220px] flex flex-col gap-md">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-6 w-48" />
+              <div className="flex-1 flex items-center justify-between">
+                <Skeleton className="h-12 w-24 rounded-xl" />
+                <Skeleton className="h-8 w-16" />
               </div>
-              <div className="flex gap-xs">
-                <button className="btn-icon btn-ghost btn-xs" onClick={() => {
-                  setEditingItem(item)
-                  setFormData({ ...item })
-                  setIsModalOpen(true)
-                }}><Edit2 size={14} /></button>
-                <button className="btn-icon btn-ghost btn-xs text-danger" onClick={() => handleDelete(item.id)}><Trash2 size={14} /></button>
+              <div className="flex justify-between items-center">
+                <div className="flex gap-sm">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                </div>
+                <Skeleton className="h-4 w-12" />
               </div>
             </div>
-
-            <div className="stock-display flex items-center justify-between p-md glass rounded-xl mb-lg">
-              <div className="flex flex-col">
-                <span className="text-[10px] text-muted uppercase font-bold">En Stock</span>
-                <div className="flex items-baseline gap-xs">
-                  <span className={`text-2xl font-black ${item.stock_actual <= item.stock_minimo ? 'text-danger' : 'text-primary'}`}>
-                    {item.stock_actual}
-                  </span>
-                  <span className="text-xs text-muted">{item.unidad}</span>
+          ))
+        ) : filteredItems.length > 0 ? (
+          filteredItems.map(item => (
+            <div key={item.id} className={`inventory-card v-glass-card ${item.stock_actual <= item.stock_minimo ? 'border-danger/30' : ''}`}>
+              <div className="flex justify-between items-start mb-md">
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase tracking-wider text-muted font-bold mb-xs">{item.categoria}</span>
+                  <h3 className="font-semibold text-lg">{item.nombre}</h3>
+                </div>
+                <div className="flex gap-xs">
+                  <button className="btn-icon btn-ghost btn-xs" onClick={() => {
+                    setEditingItem(item)
+                    setFormData({ ...item })
+                    setIsModalOpen(true)
+                  }}><Edit2 size={14} /></button>
+                  <button className="btn-icon btn-ghost btn-xs text-danger" onClick={() => handleDelete(item.id)}><Trash2 size={14} /></button>
                 </div>
               </div>
-              <div className="flex flex-col items-end">
-                <span className="text-[10px] text-muted uppercase font-bold">Mínimo</span>
-                <span className="text-sm font-semibold">{item.stock_minimo} {item.unidad}</span>
-              </div>
-            </div>
 
-            <div className="card-footer flex justify-between items-center">
-              <div className="flex gap-xs">
-                <button className="btn-icon btn-secondary h-8 w-8" onClick={() => handleUpdateStock(item.id, item.stock_actual, -1)}>
-                  <ArrowDownRight size={16} />
-                </button>
-                <button className="btn-icon btn-secondary h-8 w-8" onClick={() => handleUpdateStock(item.id, item.stock_actual, 1)}>
-                  <ArrowUpRight size={16} />
-                </button>
-              </div>
-              {item.stock_actual <= item.stock_minimo && (
-                <div className="flex items-center gap-xs text-danger animate-pulse">
-                  <AlertCircle size={14} />
-                  <span className="text-[10px] font-bold uppercase">Reposición</span>
+              <div className="stock-display flex items-center justify-between p-md glass rounded-xl mb-lg">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-muted uppercase font-bold">En Stock</span>
+                  <div className="flex items-baseline gap-xs">
+                    <span className={`text-2xl font-black ${item.stock_actual <= item.stock_minimo ? 'text-danger' : 'text-primary'}`}>
+                      {item.stock_actual}
+                    </span>
+                    <span className="text-xs text-muted">{item.unidad}</span>
+                  </div>
                 </div>
-              )}
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-muted uppercase font-bold">Mínimo</span>
+                  <span className="text-sm font-semibold">{item.stock_minimo} {item.unidad}</span>
+                </div>
+              </div>
+
+              <div className="card-footer flex justify-between items-center">
+                <div className="flex gap-xs">
+                  <button className="btn-icon btn-secondary h-8 w-8" onClick={() => handleUpdateStock(item.id, item.stock_actual, -1)}>
+                    <ArrowDownRight size={16} />
+                  </button>
+                  <button className="btn-icon btn-secondary h-8 w-8" onClick={() => handleUpdateStock(item.id, item.stock_actual, 1)}>
+                    <ArrowUpRight size={16} />
+                  </button>
+                </div>
+                {item.stock_actual <= item.stock_minimo && (
+                  <div className="flex items-center gap-xs text-danger animate-pulse">
+                    <AlertCircle size={14} />
+                    <span className="text-[10px] font-bold uppercase">Reposición</span>
+                  </div>
+                )}
+              </div>
             </div>
+          ))
+        ) : (
+          <div className="col-span-full h-64 flex flex-col items-center justify-center text-muted gap-md v-glass-card">
+            <Package size={48} className="opacity-20" />
+            <p>No se encontraron artículos en el inventario.</p>
           </div>
-        ))}
+        )}
       </div>
 
       {isModalOpen && (
@@ -366,12 +395,7 @@ export default function Inventory() {
           gap: var(--spacing-lg);
         }
         .inventory-card {
-          padding: var(--spacing-lg);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .inventory-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+          padding: 0; /* Ya lo maneja v-glass-card */
         }
         .stock-display {
           background: rgba(255,255,255,0.03);

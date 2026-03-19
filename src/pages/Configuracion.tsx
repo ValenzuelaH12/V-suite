@@ -97,7 +97,7 @@ export default function Configuracion() {
   }
 
   return (
-    <div className="config-container p-md md:p-xl">
+    <div className="config-container p-md md:p-xl animate-fade-in">
       {/* Toast Notification */}
       {msg.text && (
         <div className={`toast ${msg.type === 'error' ? 'toast-danger' : 'toast-success'} animate-slide-right`}>
@@ -109,18 +109,18 @@ export default function Configuracion() {
       )}
 
       {/* Header Panel */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-md mb-xl">
+      <div className="v-page-header">
         <div>
-          <h1 className="page-title mb-xs">Configuración del Sistema</h1>
-          <p className="text-muted text-sm">Gestión técnica y operativa del hotel</p>
+          <h1 className="v-page-title">
+            <Settings className="text-accent" />
+            Configuración del Sistema
+          </h1>
+          <p className="v-page-subtitle">Gestión técnica y operativa de la V-Suite</p>
         </div>
         <div className="flex items-center gap-sm">
-           <div className="stat-card glass p-sm px-md rounded-xl border border-white/5">
-             <span className="text-xs text-muted uppercase font-bold tracking-tighter">Estado Sync</span>
-             <div className="flex items-center gap-xs">
-               <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-               <span className="text-sm font-bold text-white uppercase">Conectado</span>
-             </div>
+           <div className="v-glass-card p-sm px-md flex items-center gap-sm border-success/20">
+             <div className="w-2 h-2 rounded-full bg-success animate-pulse shadow-[0_0_8px_var(--color-success)]" />
+             <span className="text-[10px] font-bold text-success uppercase tracking-wider">Sincronizado</span>
            </div>
         </div>
       </div>
@@ -128,7 +128,7 @@ export default function Configuracion() {
       {/* Main Grid Layout */}
       <div className="config-layout">
         {/* Navigation Sidebar */}
-        <aside className="config-sidebar glass-card p-sm h-fit sticky top-xl">
+        <aside className="config-sidebar v-glass-card p-sm h-fit sticky top-xl">
           <nav className="flex flex-col gap-xs">
             {configTabs.map(tab => {
               const Icon = tab.icon;
@@ -138,9 +138,11 @@ export default function Configuracion() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`config-nav-btn ${activeTab === tab.id ? 'active' : ''}`}
                 >
-                  <Icon size={18} />
-                  <span>{tab.name}</span>
-                  {activeTab === tab.id && <div className="nav-indicator" />}
+                  <Icon size={18} className={activeTab === tab.id ? 'text-accent' : 'text-muted'} />
+                  <span className="text-sm font-semibold">{tab.name}</span>
+                  {activeTab === tab.id && (
+                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--color-accent)]" />
+                  )}
                 </button>
               );
             })}
@@ -228,7 +230,7 @@ export default function Configuracion() {
       <style>{`
         .config-layout {
           display: grid;
-          grid-template-columns: 240px 1fr;
+          grid-template-columns: 260px 1fr;
           gap: var(--spacing-xl);
           align-items: start;
         }
@@ -237,34 +239,24 @@ export default function Configuracion() {
           display: flex;
           align-items: center;
           gap: var(--spacing-md);
-          padding: 0.875rem 1.25rem;
-          border-radius: var(--radius-md);
+          padding: 0.875rem 1rem;
+          border-radius: var(--radius-lg);
           color: var(--color-text-secondary);
-          font-weight: 500;
-          transition: all var(--transition-fast);
+          transition: all var(--transition-normal);
           position: relative;
           text-align: left;
           width: 100%;
         }
 
         .config-nav-btn:hover {
-          background: var(--color-bg-glass);
+          background: rgba(255, 255, 255, 0.05);
           color: var(--color-text-primary);
         }
 
         .config-nav-btn.active {
-          background: var(--color-accent-light);
-          color: var(--color-accent-hover);
-        }
-
-        .nav-indicator {
-          position: absolute;
-          right: 12px;
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--color-accent);
-          box-shadow: 0 0 10px var(--color-accent);
+          background: rgba(99, 102, 241, 0.1);
+          color: white;
+          border: 1px solid rgba(99, 102, 241, 0.2);
         }
 
         @media (max-width: 1024px) {
@@ -272,22 +264,19 @@ export default function Configuracion() {
             grid-template-columns: 1fr;
           }
           .config-sidebar {
-            position: static;
+            position: sticky;
+            top: 0;
+            z-index: 10;
             margin-bottom: var(--spacing-lg);
           }
           .config-sidebar nav {
             flex-direction: row;
             overflow-x: auto;
-            padding-bottom: var(--spacing-sm);
+            padding: 0.25rem;
           }
           .config-nav-btn {
             white-space: nowrap;
             padding: 0.625rem 1rem;
-          }
-          .nav-indicator {
-            bottom: 4px;
-            right: 50%;
-            transform: translateX(50%);
           }
         }
       `}</style>

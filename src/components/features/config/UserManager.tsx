@@ -122,65 +122,69 @@ export const UserManager: React.FC<UserManagerProps> = ({
   };
 
   return (
-    <Card className="table-panel">
-      <div className="panel-header border-b">
+    <div className="v-glass-card p-none overflow-hidden animate-fade-in">
+      <div className="v-page-header border-b border-white/5 bg-white/5 py-4 px-6 mb-0">
         <div className="flex items-center gap-md">
-          <Users size={20} className="text-accent" />
-          <h3 className="text-lg font-semibold">Equipo y Usuarios</h3>
+          <div className="p-2 bg-accent/20 text-accent rounded-lg">
+            <Users size={20} />
+          </div>
+          <h3 className="text-lg font-black text-white tracking-tight uppercase">Equipo y Usuarios</h3>
         </div>
-        <Button size="sm" onClick={() => setIsAddingUser(true)} icon={UserPlus}>
+        <Button size="sm" onClick={() => setIsAddingUser(true)} icon={UserPlus} className="bg-accent hover:bg-accent-hover text-white rounded-xl px-6 py-2 text-xs font-bold uppercase tracking-wider">
           Agregar
         </Button>
       </div>
       
-      <div className="panel-body p-none">
-        <div className="table-responsive">
-          <table className="config-table">
+      <div className="p-none">
+        <div className="v-table-container">
+          <table className="v-table">
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Rol</th>
-                <th>Hotel</th>
-                <th>ID</th>
-                <th>Acciones</th>
+                <th className="text-left font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Nombre</th>
+                <th className="text-left font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Rol</th>
+                <th className="text-left font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Hotel</th>
+                <th className="text-left font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">ID</th>
+                <th className="text-right font-black uppercase text-[10px] tracking-widest text-muted py-4 px-6">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {users.map(u => (
-                <tr key={u.id}>
-                  <td>
+                <tr key={u.id} className="group hover:bg-white/5 transition-all border-b border-white/5 last:border-0">
+                  <td className="py-4 px-6">
                     <div className="flex items-center gap-sm">
-                      <div className="avatar avatar-sm avatar-gradient">
+                      <div className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold text-xs border border-accent/30 shadow-[0_0_10px_rgba(99,102,241,0.2)]">
                         {u.nombre?.charAt(0)}
                       </div>
-                      {u.nombre}
+                      <span className="text-sm font-semibold text-white">{u.nombre}</span>
                     </div>
                   </td>
-                  <td>
-                    <Badge variant="accent">
+                  <td className="py-4 px-6">
+                    <span className="px-3 py-1 bg-white/5 border border-white/10 text-white rounded-full text-[10px] font-black uppercase tracking-tighter">
                       {u.rol?.toUpperCase()}
-                    </Badge>
+                    </span>
                   </td>
-                  <td className="text-muted text-xs">
-                    {u.hotel_id === '00000000-0000-0000-0000-000000000000' ? 'Hotel Principal' : u.hotel_id?.substring(0, 8)}
+                  <td className="py-4 px-6 text-muted text-xs font-medium">
+                    {u.hotel_id === '00000000-0000-0000-0000-000000000000' ? 'Sede Central' : u.hotel_id?.substring(0, 8)}
                   </td>
-                  <td>
-                    <div className="flex gap-sm">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                  <td className="py-4 px-6 text-muted font-mono text-[10px] opacity-40">
+                    {u.id.substring(0, 8)}...
+                  </td>
+                  <td className="py-4 px-6 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button 
                         onClick={() => { setEditingUser(u); setIsEditingUser(true); }}
-                        icon={RefreshCw}
-                        title="Editar"
-                      />
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-danger"
+                        className="p-2 rounded-lg bg-white/5 text-muted hover:text-accent hover:bg-accent/10 transition-all border border-white/5"
+                        title="Configurar Perfil"
+                      >
+                        <RefreshCw size={14} />
+                      </button>
+                      <button 
+                        className="p-2 rounded-lg bg-white/5 text-muted hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-white/5"
                         onClick={() => handleDeleteUser(u.id, u.nombre)}
-                        icon={Trash2}
-                        title="Eliminar"
-                      />
+                        title="Borrar Acceso"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -345,42 +349,6 @@ export const UserManager: React.FC<UserManagerProps> = ({
           </div>
         )}
       </Modal>
-      <style>{`
-        .permissions-grid-compact {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-          gap: 4px;
-        }
-        .perm-tag {
-          padding: 4px 10px;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
-          cursor: pointer;
-          transition: all 0.2s ease;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 10px;
-          font-weight: 500;
-          height: 32px;
-        }
-        .perm-tag.active {
-          border-color: var(--color-accent);
-          background: var(--color-accent-light);
-          color: white;
-        }
-        .grid { display: grid; }
-        .grid-cols-2 { grid-template-columns: 1fr 1fr; }
-        .grid-cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-        .items-end { align-items: end; }
-        .mb-none { margin-bottom: 0; }
-        .mb-sm { margin-bottom: var(--spacing-sm); }
-        .mb-xs { margin-bottom: var(--spacing-xs); }
-        .gap-sm { gap: var(--spacing-sm); }
-        .py-1.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
-        .text-xs { font-size: 0.75rem; }
-      `}</style>
-    </Card>
+    </div>
   );
 };
