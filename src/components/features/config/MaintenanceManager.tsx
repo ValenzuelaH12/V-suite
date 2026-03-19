@@ -470,7 +470,6 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
                     <option value="trimestral">Trimestral</option>
                     <option value="semestral">Semestral</option>
                     <option value="anual">Anual</option>
-                  <option value="anual">Anual</option>
                 </select>
               </div>
               <div className="flex flex-col gap-xs">
