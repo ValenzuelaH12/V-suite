@@ -17,8 +17,9 @@ export const useIncidentMutation = () => {
   const createIncident = useMutation({
     mutationFn: (newIncident: Partial<Incident>) => 
       incidentService.create(newIncident),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['incidents', variables.hotel_id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['super-admin'] });
     },
     onError: async (error: any, variables) => {
       // Si el error parece ser de conexión, guardamos en la cola
@@ -38,8 +39,9 @@ export const useIncidentMutation = () => {
     mutationFn: ({ id, status }: { id: string; status: any }) =>
       incidentService.updateStatus(id, status as any),
     onSuccess: () => {
-      // Intentamos invalidar todas las incidencias o ser más específicos
+      // Invalidar caché local y global
       queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['super-admin'] });
     },
     onError: async (error: any, variables) => {
       if (error?.message === 'Failed to fetch' || !navigator.onLine) {
@@ -53,5 +55,23 @@ export const useIncidentMutation = () => {
     }
   });
 
-  return { createIncident, updateIncidentStatus };
+  const deleteIncident = useMutation({
+    mutationFn: (id: string) => incidentService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+      queryClient.invalidateQueries({ queryKey: ['super-admin'] });
+    },
+    onError: async (error: any, id: string) => {
+      if (error?.message === 'Failed to fetch' || !navigator.onLine) {
+        await dbService.addToSyncQueue({
+          table: 'incidencias',
+          action: 'delete',
+          data: { id },
+          timestamp: Date.now()
+        });
+      }
+    }
+  });
+
+  return { createIncident, updateIncidentStatus, deleteIncident };
 };

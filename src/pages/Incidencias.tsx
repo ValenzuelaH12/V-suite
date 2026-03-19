@@ -27,7 +27,7 @@ export default function Incidencias() {
   const { data: habitaciones = [], isLoading: roomsLoading } = useRooms(activeHotelId)
   const { data: tipos = [], isLoading: typesLoading } = useIncidentTypes(activeHotelId)
   const { data: staff = [], isLoading: staffLoading } = useUsers(activeHotelId)
-  const { createIncident, updateIncidentStatus } = useIncidentMutation()
+  const { createIncident, updateIncidentStatus, deleteIncident } = useIncidentMutation()
 
   const [selectedIncident, setSelectedIncident] = useState(null)
   const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false)
@@ -291,30 +291,11 @@ export default function Incidencias() {
     if (!selectedIncident) return
     const id = selectedIncident.id
     try {
-      const { error, count } = await supabase
-        .from('incidencias')
-        .delete()
-        .eq('id', id)
-        .select()
+      await deleteIncident.mutateAsync(id)
       
-      if (error) throw error
-
-      // Verificar si realmente se eliminó (RLS puede bloquearlo silenciosamente)
-      const { data: check } = await supabase
-        .from('incidencias')
-        .select('id')
-        .eq('id', id)
-        .maybeSingle()
-
-      if (check) {
-        toast.error('No se pudo eliminar la incidencia. Verifica permisos RLS.')
-        return
-      }
-
       setIsDetailPanelOpen(false)
       setSelectedIncident(null)
       setShowDeleteConfirm(false)
-      fetchIncidents()
       toast.success('Incidencia eliminada correctamente.')
     } catch (error) {
       console.error('Error deleting incident:', error)
