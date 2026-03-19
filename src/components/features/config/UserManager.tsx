@@ -11,7 +11,12 @@ import {
   Shield, 
   ChevronRight,
   Info,
-  CheckCircle2
+  CheckCircle2,
+  Key,
+  Building2,
+  Wrench,
+  Brush,
+  UserCheck
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { configService } from '../../../services/configService';
@@ -218,110 +223,90 @@ export const UserManager: React.FC<UserManagerProps> = ({
         }
       >
         <div className="space-y-6">
-          {/* SECCIÓN 1: IDENTIDAD */}
-          <div className="premium-section-header">
-            <div className="section-icon-box">
-              <User size={14} />
-            </div>
-            <h4 className="section-title">Información de Identidad</h4>
-          </div>
-
+          {/* IDENTIDAD: BLOQUES DE ENTRADA */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="group relative">
-              <label className="input-label-premium">Nombre Completo</label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/50 group-focus-within:text-accent transition-colors">
-                  <User size={16} />
-                </div>
-                <input 
-                  type="text" 
-                  className="v-input-ultra" 
-                  placeholder="Ej. Juan Pérez"
-                  value={newUser.nombre} 
-                  onChange={e => setNewUser({...newUser, nombre: e.target.value})} 
-                  required 
-                />
+            <div className="zona-style-input-card">
+              <div className="card-header-mini">
+                <User size={12} className="text-accent" />
+                <span>Nombre Completo</span>
               </div>
+              <input 
+                type="text" 
+                className="zona-input-field" 
+                placeholder="Nombre del miembro..."
+                value={newUser.nombre} 
+                onChange={e => setNewUser({...newUser, nombre: e.target.value})} 
+                required 
+              />
             </div>
-            <div className="group relative">
-              <label className="input-label-premium">Correo Electrónico</label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/50 group-focus-within:text-accent transition-colors">
-                  <Mail size={16} />
-                </div>
-                <input 
-                  type="email" 
-                  className="v-input-ultra" 
-                  placeholder="juan@hotel.com"
-                  value={newUser.email} 
-                  onChange={e => setNewUser({...newUser, email: e.target.value})} 
-                  required 
-                />
+            <div className="zona-style-input-card">
+              <div className="card-header-mini">
+                <Mail size={12} className="text-accent" />
+                <span>Correo Corporativo</span>
               </div>
+              <input 
+                type="email" 
+                className="zona-input-field" 
+                placeholder="email@hosteleria.com"
+                value={newUser.email} 
+                onChange={e => setNewUser({...newUser, email: e.target.value})} 
+                required 
+              />
             </div>
           </div>
 
-          {/* SECCIÓN 2: SEGURIDAD Y ROL */}
-          <div className="premium-section-header">
-            <div className="section-icon-box">
-              <Lock size={14} />
-            </div>
-            <h4 className="section-title">Seguridad y Jerarquía</h4>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="group relative">
-              <label className="input-label-premium">Contraseña Maestra</label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/50 group-focus-within:text-accent transition-colors">
-                  <Lock size={16} />
-                </div>
-                <input 
-                  type="password" 
-                  className="v-input-ultra" 
-                  placeholder="********"
-                  value={newUser.password} 
-                  onChange={e => setNewUser({...newUser, password: e.target.value})} 
-                  required 
-                />
+          <div className="grid grid-cols-1 gap-4">
+            <div className="zona-style-input-card">
+              <div className="card-header-mini">
+                <Key size={12} className="text-accent" />
+                <span>Credencial de Acceso</span>
               </div>
-            </div>
-            <div className="group relative">
-              <label className="input-label-premium">Rol Administrativo</label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/50 group-focus-within:text-accent transition-colors">
-                  <Shield size={16} />
-                </div>
-                <select 
-                  className="v-input-ultra appearance-none" 
-                  value={newUser.rol} 
-                  onChange={e => setNewUser({...newUser, rol: e.target.value as UserRole})}
-                >
-                  <option value="recepcion">Recepción / V-Nexus</option>
-                  <option value="mantenimiento">Técnico Mantenimiento</option>
-                  <option value="limpieza">Staff de Limpieza</option>
-                  <option value="gobernanta">Supervisión / Gobernanta</option>
-                  <option value="admin">Administrador Suite</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
-                  <ChevronRight size={14} className="rotate-90" />
-                </div>
-              </div>
+              <input 
+                type="password" 
+                className="zona-input-field" 
+                placeholder="Introducir clave de seguridad..."
+                value={newUser.password} 
+                onChange={e => setNewUser({...newUser, password: e.target.value})} 
+                required 
+              />
             </div>
           </div>
 
-          {/* SECCIÓN 3: CAPACIDADES */}
-          <div className="premium-section-header">
-            <div className="section-icon-box">
-              <Shield size={14} />
-            </div>
-            <h4 className="section-title">Privilegios de Módulo</h4>
-            <div className="ml-auto flex items-center gap-1 text-[9px] text-accent/80 font-black uppercase bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
-              <Info size={10} /> 
-              Selección Inteligente
-            </div>
+          {/* ROL: SELECTOR DE TARJETAS CUADRADAS */}
+          <div className="section-divider">
+            <span className="divider-text">Asignar Rol Jerárquico</span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+          <div className="flex flex-wrap gap-2 justify-start">
+            {[
+              { id: 'recepcion', name: 'Recepción', icon: Building2, color: '#6366f1' },
+              { id: 'mantenimiento', name: 'Técnico', icon: Wrench, color: '#f59e0b' },
+              { id: 'limpieza', name: 'Limpieza', icon: Brush, color: '#10b981' },
+              { id: 'gobernanta', name: 'Gobernanta', icon: UserCheck, color: '#ec4899' },
+              { id: 'admin', name: 'Admin', icon: Shield, color: '#ef4444' }
+            ].map(role => (
+              <button
+                key={role.id}
+                type="button"
+                className={`zona-role-card flex-1 min-w-[100px] ${newUser.rol === role.id ? 'active' : ''}`}
+                style={{ '--role-color': role.color } as React.CSSProperties}
+                onClick={() => setNewUser({...newUser, rol: role.id as UserRole})}
+              >
+                <div className="role-icon">
+                  <role.icon size={18} />
+                </div>
+                <span className="role-name">{role.name}</span>
+                {newUser.rol === role.id && <div className="role-check"><CheckCircle2 size={10} /></div>}
+              </button>
+            ))}
+          </div>
+
+          {/* PERMISOS: REJILLA DE BLOQUES */}
+          <div className="section-divider">
+            <span className="divider-text">Permisos de Navegación</span>
+          </div>
+
+          <div className="flex flex-wrap gap-2 justify-start">
             {AVAILABLE_MODULES.map(module => {
               const Icon = module.icon;
               const isActive = newUser.permisos?.includes(module.id);
@@ -329,7 +314,7 @@ export const UserManager: React.FC<UserManagerProps> = ({
                 <button 
                   key={module.id} 
                   type="button"
-                  className={`group relative flex flex-col items-center justify-center gap-2 p-5 rounded-[22px] border transition-all duration-500 overflow-hidden ${
+                  className={`group relative flex flex-col items-center justify-center gap-2 p-4 min-w-[110px] flex-1 rounded-[18px] border transition-all duration-500 overflow-hidden ${
                     isActive 
                       ? 'bg-accent text-white border-accent shadow-[0_8px_20px_rgba(99,102,241,0.3)] scale-[1.02]' 
                       : 'bg-white/5 border-white/5 text-muted/60 hover:border-white/20 hover:bg-white/10 hover:text-white'
@@ -341,16 +326,15 @@ export const UserManager: React.FC<UserManagerProps> = ({
                     setNewUser({...newUser, permisos: perms});
                   }}
                 >
-                  {/* Glow background when active */}
                   {isActive && <div className="absolute inset-0 bg-gradient-to-tr from-accent/40 via-transparent to-transparent opacity-50 animate-pulse" />}
                   
-                  <div className={`relative p-3 rounded-2xl transition-all duration-500 ${isActive ? 'bg-white/20 shadow-inner' : 'bg-black/20 group-hover:scale-110'}`}>
-                    <Icon size={22} strokeWidth={2.5} />
+                  <div className={`relative p-2 rounded-xl transition-all duration-500 ${isActive ? 'bg-white/20 shadow-inner' : 'bg-black/20 group-hover:scale-110'}`}>
+                    <Icon size={18} strokeWidth={2.5} />
                   </div>
-                  <span className="relative text-[10px] font-black uppercase tracking-widest">{module.name}</span>
+                  <span className="relative text-[9px] font-black uppercase tracking-widest">{module.name}</span>
                   
                   {isActive && <div className="absolute top-2 right-2 text-white">
-                    <CheckCircle2 size={12} fill="white" className="text-accent" />
+                    <CheckCircle2 size={10} fill="white" className="text-accent" />
                   </div>}
                 </button>
               );
@@ -364,74 +348,77 @@ export const UserManager: React.FC<UserManagerProps> = ({
         isOpen={isEditingUser} 
         onClose={() => setIsEditingUser(false)}
         title="Editar Miembro"
-        maxWidth="550px"
+        maxWidth="600px"
         footer={
           <Button onClick={handleUpdateUser}>Guardar Cambios</Button>
         }
       >
         {editingUser && (
           <div className="space-y-6">
-            {/* SECCIÓN 1: IDENTIDAD */}
-            <div className="premium-section-header">
-              <div className="section-icon-box">
-                <User size={14} />
-              </div>
-              <h4 className="section-title">Información de Perfil</h4>
-            </div>
-
+            {/* IDENTIDAD: BLOQUES DE ENTRADA */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="group relative">
-                <label className="input-label-premium">Nombre Completo</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/50 group-focus-within:text-accent transition-colors">
-                    <User size={16} />
-                  </div>
-                  <input 
-                    type="text" 
-                    className="v-input-ultra" 
-                    value={editingUser.nombre} 
-                    onChange={e => setEditingUser({...editingUser, nombre: e.target.value})} 
-                    required 
-                  />
+              <div className="zona-style-input-card">
+                <div className="card-header-mini">
+                  <User size={12} className="text-accent" />
+                  <span>Nombre del Perfil</span>
                 </div>
+                <input 
+                  type="text" 
+                  className="zona-input-field" 
+                  value={editingUser.nombre} 
+                  onChange={e => setEditingUser({...editingUser, nombre: e.target.value})} 
+                  required 
+                />
               </div>
-              <div className="group relative">
-                <label className="input-label-premium">Rol de Usuario</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/50 group-focus-within:text-accent transition-colors">
-                    <Shield size={16} />
-                  </div>
-                  <select 
-                    className="v-input-ultra appearance-none" 
-                    value={editingUser.rol} 
-                    onChange={e => setEditingUser({...editingUser, rol: e.target.value as UserRole})}
-                  >
-                    <option value="recepcion">Recepción / V-Nexus</option>
-                    <option value="mantenimiento">Técnico Mantenimiento</option>
-                    <option value="limpieza">Staff de Limpieza</option>
-                    <option value="gobernanta">Supervisión / Gobernanta</option>
-                    <option value="admin">Administrador Suite</option>
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
-                    <ChevronRight size={14} className="rotate-90" />
-                  </div>
+              <div className="zona-style-input-card opacity-50 cursor-not-allowed">
+                <div className="card-header-mini">
+                  <Mail size={12} className="text-muted" />
+                  <span>Email (No editable)</span>
                 </div>
+                <input 
+                  type="email" 
+                  className="zona-input-field cursor-not-allowed" 
+                  value={editingUser.email} 
+                  disabled
+                />
               </div>
             </div>
 
-            {/* SECCIÓN 2: PRIVILEGIOS */}
-            <div className="premium-section-header">
-              <div className="section-icon-box">
-                <Lock size={14} />
-              </div>
-              <h4 className="section-title">Ajustes de Permisos</h4>
-              <div className="ml-auto flex items-center gap-1 text-[9px] text-accent/80 font-black uppercase bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
-                <Info size={10} /> 
-                Configuración Activa
-              </div>
+            {/* ROL: SELECTOR DE TARJETAS CUADRADAS */}
+            <div className="section-divider">
+              <span className="divider-text">Modificar Jerarquía</span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="flex flex-wrap gap-2 justify-start">
+              {[
+                { id: 'recepcion', name: 'Recepción', icon: Building2, color: '#6366f1' },
+                { id: 'mantenimiento', name: 'Técnico', icon: Wrench, color: '#f59e0b' },
+                { id: 'limpieza', name: 'Limpieza', icon: Brush, color: '#10b981' },
+                { id: 'gobernanta', name: 'Gobernanta', icon: UserCheck, color: '#ec4899' },
+                { id: 'admin', name: 'Admin', icon: Shield, color: '#ef4444' }
+              ].map(role => (
+                <button
+                  key={role.id}
+                  type="button"
+                  className={`zona-role-card flex-1 min-w-[100px] ${editingUser.rol === role.id ? 'active' : ''}`}
+                  style={{ '--role-color': role.color } as React.CSSProperties}
+                  onClick={() => setEditingUser({...editingUser, rol: role.id as UserRole})}
+                >
+                  <div className="role-icon">
+                    <role.icon size={18} />
+                  </div>
+                  <span className="role-name">{role.name}</span>
+                  {editingUser.rol === role.id && <div className="role-check"><CheckCircle2 size={10} /></div>}
+                </button>
+              ))}
+            </div>
+
+            {/* PERMISOS: REJILLA DE BLOQUES */}
+            <div className="section-divider">
+              <span className="divider-text">Ajustes de Capacidad</span>
+            </div>
+
+            <div className="flex flex-wrap gap-2 justify-start">
               {AVAILABLE_MODULES.map(module => {
                 const Icon = module.icon;
                 const isActive = editingUser.permisos?.includes(module.id);
@@ -439,7 +426,7 @@ export const UserManager: React.FC<UserManagerProps> = ({
                   <button 
                     key={module.id} 
                     type="button"
-                    className={`group relative flex flex-col items-center justify-center gap-2 p-5 rounded-[22px] border transition-all duration-500 overflow-hidden ${
+                    className={`group relative flex flex-col items-center justify-center gap-2 p-4 min-w-[110px] flex-1 rounded-[18px] border transition-all duration-500 overflow-hidden ${
                       isActive 
                         ? 'bg-accent text-white border-accent shadow-[0_8px_20px_rgba(99,102,241,0.3)] scale-[1.02]' 
                         : 'bg-white/5 border-white/5 text-muted/60 hover:border-white/20 hover:bg-white/10 hover:text-white'
@@ -453,13 +440,13 @@ export const UserManager: React.FC<UserManagerProps> = ({
                   >
                     {isActive && <div className="absolute inset-0 bg-gradient-to-tr from-accent/40 via-transparent to-transparent opacity-50 animate-pulse" />}
                     
-                    <div className={`relative p-3 rounded-2xl transition-all duration-500 ${isActive ? 'bg-white/20 shadow-inner' : 'bg-black/20 group-hover:scale-110'}`}>
-                      <Icon size={22} strokeWidth={2.5} />
+                    <div className={`relative p-2 rounded-xl transition-all duration-500 ${isActive ? 'bg-white/20 shadow-inner' : 'bg-black/20 group-hover:scale-110'}`}>
+                      <Icon size={18} strokeWidth={2.5} />
                     </div>
-                    <span className="relative text-[10px] font-black uppercase tracking-widest">{module.name}</span>
+                    <span className="relative text-[9px] font-black uppercase tracking-widest">{module.name}</span>
                     
                     {isActive && <div className="absolute top-2 right-2 text-white">
-                      <CheckCircle2 size={12} fill="white" className="text-accent" />
+                      <CheckCircle2 size={10} fill="white" className="text-accent" />
                     </div>}
                   </button>
                 );
@@ -469,59 +456,104 @@ export const UserManager: React.FC<UserManagerProps> = ({
         )}
       </Modal>
       <style>{`
-        .v-input-ultra {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 16px; 
-          padding: 0.9rem 1rem 0.9rem 2.75rem; 
-          color: white; 
-          width: 100%; 
-          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-          font-size: 0.9rem;
-          font-weight: 500;
-          box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        .zona-style-input-card {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 12px;
+          padding: 8px 12px;
+          transition: all 0.2s;
         }
-        .v-input-ultra:focus {
-          outline: none; 
-          border-color: #6366f1; 
-          background: rgba(99, 102, 241, 0.05);
-          box-shadow: 0 0 20px rgba(99, 102, 241, 0.15), inset 0 2px 4px rgba(0,0,0,0.05);
-          transform: translateY(-1px);
+        .zona-style-input-card:focus-within {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: var(--color-accent);
+          box-shadow: 0 0 15px rgba(99, 102, 241, 0.1);
         }
-        .v-input-ultra::placeholder { color: rgba(255,255,255,0.2); font-weight: 400; }
-        .v-input-ultra option { background: #0a0a0f; color: white; padding: 10px; }
-
-        .input-label-premium {
-          display: block;
+        .card-header-mini {
+          display: flex;
+          align-items: center;
+          gap: 6px;
           font-size: 9px;
-          font-weight: 900;
+          font-weight: 800;
           color: rgba(255,255,255,0.4);
           text-transform: uppercase;
-          letter-spacing: 0.15em;
-          margin-bottom: 8px;
-          padding-left: 4px;
+          margin-bottom: 4px;
         }
+        .zona-input-field {
+          background: transparent;
+          border: none;
+          color: white;
+          width: 100%;
+          font-size: 0.85rem;
+          font-weight: 600;
+          outline: none;
+        }
+        .zona-input-field::placeholder { color: rgba(255,255,255,0.1); }
 
-        .premium-section-header {
+        .section-divider {
           display: flex;
           align-items: center;
           gap: 12px;
-          margin-top: 8px;
+          margin: 8px 0;
         }
-        .section-icon-box {
-          width: 28px; height: 28px;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 8px;
-          display: flex; align-items: center; justify-content: center;
-          color: #6366f1;
-        }
-        .section-title {
-          font-size: 11px;
-          font-weight: 800;
-          color: #fff;
+        .divider-text {
+          font-size: 10px;
+          font-weight: 900;
+          color: var(--color-accent);
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.1em;
+          white-space: nowrap;
+        }
+        .section-divider::after {
+          content: '';
+          height: 1px;
+          flex: 1;
+          background: linear-gradient(to right, var(--color-accent), transparent);
+          opacity: 0.2;
+        }
+
+        .zona-role-card {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 16px 8px;
+          border-radius: 14px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(255, 255, 255, 0.02);
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .zona-role-card:hover {
+          background: rgba(255, 255, 255, 0.05);
+          transform: translateY(-2px);
+        }
+        .zona-role-card.active {
+          background: var(--role-color);
+          border-color: white;
+          box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+          transform: scale(1.05);
+        }
+        .role-icon {
+          color: var(--role-color);
+          transition: all 0.3s;
+        }
+        .zona-role-card.active .role-icon,
+        .zona-role-card.active .role-name {
+          color: white;
+        }
+        .role-name {
+          font-size: 8px;
+          font-weight: 900;
+          color: rgba(255, 255, 255, 0.6);
+          text-transform: uppercase;
+          text-align: center;
+        }
+        .role-check {
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          color: white;
         }
       `}</style>
     </div>
