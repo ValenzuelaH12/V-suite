@@ -49,6 +49,9 @@ export default function Configuracion() {
   const { data: tipos = [], isLoading: typesLoading, refetch: refetchIncidentTypes } = useIncidentTypes(activeHotelId);
   
   // Mantenimiento aún usa supabase directamente por ahora, o podemos centralizarlo luego
+
+  const loading = usersLoading || zonesLoading || roomsLoading || assetsLoading || countersLoading || typesLoading;
+  
   const fetchAll = () => {
     refetchUsers();
     refetchZones();
@@ -59,7 +62,6 @@ export default function Configuracion() {
   };
 
 
-  const loading = usersLoading || zonesLoading || roomsLoading || assetsLoading || countersLoading || typesLoading;
 
   const showMsg = (m: { type: 'success' | 'error', text: string }) => {
     setMsg(m);
