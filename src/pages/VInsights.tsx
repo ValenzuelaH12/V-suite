@@ -12,8 +12,12 @@ import {
   Filter,
   Download,
   Calendar,
-  Sparkles 
+  Sparkles,
+  Droplets,
+  Zap,
+  LayoutDashboard
 } from 'lucide-react'
+import { WaterQualityControl } from '../components/features/analytics/WaterQualityControl'
 import { aiService } from '../services/aiService'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -49,6 +53,7 @@ ChartJS.register(
 
 export default function VInsights() {
   const { activeHotelId } = useAuth()
+  const [activeTab, setActiveTab] = useState<'general' | 'water'>('general')
   const [isExporting, setIsExporting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState('30') // días
@@ -330,11 +335,26 @@ export default function VInsights() {
         <div>
           <h1 className="v-page-title">
             <BarChart3 className="text-accent" />
-            V-Insights <span className="badge badge-accent ml-sm">AI</span>
+            V-Insights <span className="badge badge-accent ml-sm text-[10px]">AI ENGINE</span>
           </h1>
           <p className="v-page-subtitle">Analítica avanzada y toma de decisiones ejecutivas</p>
         </div>
         <div className="flex items-center gap-md">
+          <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 mr-4">
+            <button 
+              onClick={() => setActiveTab('general')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'general' ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-muted hover:text-white'}`}
+            >
+              <LayoutDashboard size={14} /> Vista General
+            </button>
+            <button 
+              onClick={() => setActiveTab('water')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'water' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-muted hover:text-white'}`}
+            >
+              <Droplets size={14} /> Gestión Hídrica
+            </button>
+          </div>
+
           <div className="select-wrapper">
             <Calendar size={16} className="select-icon" />
             <select 
@@ -361,6 +381,11 @@ export default function VInsights() {
           </button>
         </div>
       </div>
+
+      {activeTab === 'water' ? (
+        <WaterQualityControl activeHotelId={activeHotelId} />
+      ) : (
+        <>
 
       {anomaly && (
         <div className="v-glass-card mb-xl p-lg border-l-4 border-l-danger animate-fade-in" style={{ background: 'rgba(239, 68, 68, 0.05)' }}>
@@ -488,6 +513,8 @@ export default function VInsights() {
           </div>
         </div>
       </div>
+    </>
+  )}
 
       <style>{`
         .insights-page {
