@@ -1219,93 +1219,97 @@ export default function Planificacion() {
       {/* MODAL INSPECCIÓN INDIVIDUAL (DENTRO DE EJECUCIÓN DETALLADA) */}
       {selectedRoom && (
         <div className="modal-overlay z-[100] backdrop-blur-md" onClick={() => setSelectedRoom(null)}>
-          <div className="modal-content max-w-sm bg-[#111118]/90 border border-white/10 ring-1 ring-white/5 shadow-2xl overflow-hidden rounded-3xl" onClick={e => e.stopPropagation()}>
+          <div className="modal-content max-w-lg bg-[#0a0a0f]/95 border border-white/10 ring-1 ring-white/5 shadow-2xl overflow-hidden rounded-[2.5rem] animate-in fade-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
             <div className="modal-header border-b border-white/5 py-lg px-xl bg-gradient-to-r from-accent/10 to-transparent">
               <div className="flex flex-col">
-                <span className="text-xxs text-accent font-black tracking-widest uppercase mb-1">INSPECCIÓN DETALLADA</span>
-                <h2 className="text-xl font-black text-white">Habitación {selectedRoom.nombre}</h2>
+                <span className="text-[10px] text-accent font-black tracking-[0.2em] uppercase mb-1">INSPECCIÓN DE UNIDAD</span>
+                <h2 className="text-2xl font-black text-white tracking-tight">Habitación {selectedRoom.nombre}</h2>
               </div>
-              <button className="p-2 rounded-xl bg-white/5 text-muted hover:text-white transition-colors" onClick={() => setSelectedRoom(null)}><X size={20} /></button>
+              <button className="p-2.5 rounded-2xl bg-white/5 text-muted hover:text-white hover:bg-white/10 transition-all" onClick={() => setSelectedRoom(null)}><X size={20} /></button>
             </div>
 
-            <div className="modal-body p-xl flex flex-col gap-lg overflow-y-auto custom-scrollbar" style={{ maxHeight: '65vh' }}>
-              <div className="flex flex-col gap-md">
-                {inspectionChecklist.length === 0 ? (
-                  <div className="py-xl text-center flex flex-col items-center">
-                    <History size={48} className="text-muted mb-md opacity-10 animate-pulse" />
-                    <p className="text-sm text-muted max-w-[200px] leading-relaxed">No hay elementos configurados para esta inspección.</p>
-                  </div>
-                ) : (
-                  inspectionChecklist.map((item, idx) => (
-                    <div key={idx} className="group p-lg rounded-[2rem] border border-white/5 bg-white/5 hover:bg-white/[0.08] transition-all duration-300">
-                      <div className="flex items-center justify-between mb-lg px-1">
-                        <span className="font-bold text-white text-sm tracking-tight">{item.name}</span>
-                        <div className="flex items-center gap-2">
-                           {item.status === 'bueno' && <div className="flex items-center gap-1.5 py-1 px-3 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 animate-in zoom-in-95 duration-300"><ThumbsUp size={10} /><span className="text-[10px] font-black tracking-wider uppercase">ÓPTIMO</span></div>}
-                           {item.status === 'regular' && <div className="flex items-center gap-1.5 py-1 px-3 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/20 animate-in zoom-in-95 duration-300"><AlertCircle size={10} /><span className="text-[10px] font-black tracking-wider uppercase">REGULAR</span></div>}
-                           {item.status === 'malo' && <div className="flex items-center gap-1.5 py-1 px-3 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/20 animate-in zoom-in-95 duration-300"><XCircle size={10} /><span className="text-[10px] font-black tracking-wider uppercase">DEFICIENTE</span></div>}
-                        </div>
+            <div className="modal-body p-xl flex flex-col gap-sm overflow-y-auto custom-scrollbar" style={{ maxHeight: '60vh' }}>
+              {inspectionChecklist.length === 0 ? (
+                <div className="py-20 text-center flex flex-col items-center">
+                  <History size={64} className="text-muted mb-6 opacity-5 animate-pulse" />
+                  <p className="text-base text-muted font-medium max-w-[240px] leading-relaxed">No hay elementos configurados para esta unidad.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {inspectionChecklist.map((item, idx) => (
+                    <div key={idx} className="group flex items-center gap-4 p-4 rounded-3xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all duration-300">
+                      <div className="flex-1 flex flex-col">
+                        <span className="font-bold text-white text-base tracking-tight group-hover:translate-x-1 transition-transform">{item.name}</span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest mt-0.5 ${
+                          item.status === 'bueno' ? 'text-emerald-500' :
+                          item.status === 'regular' ? 'text-amber-500' : 'text-rose-500'
+                        }`}>
+                          {item.status === 'bueno' ? 'Estado Cámara' : item.status === 'regular' ? 'Requiere Atención' : 'Defecto Crítico'}
+                        </span>
                       </div>
                       
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="flex items-center gap-1.5 p-1.5 bg-black/40 rounded-2xl border border-white/5">
                         <button 
                           type="button"
                           onClick={() => handleToggleItemStatus(idx, 'bueno')}
-                          className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 group ${
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all duration-300 ${
                             item.status === 'bueno' 
-                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 scale-105' 
-                              : 'bg-white/5 text-muted hover:bg-white/10'
+                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' 
+                              : 'text-muted hover:text-white hover:bg-white/5'
                           }`}
+                          title="Bueno"
                         >
-                          <ThumbsUp size={18} className={item.status === 'bueno' ? 'animate-bounce' : ''} />
-                          <span className="text-[9px] font-black tracking-widest uppercase">BUENO</span>
+                          <ThumbsUp size={16} className={item.status === 'bueno' ? 'animate-bounce' : ''} />
+                          <span className="text-[10px] font-black">OK</span>
                         </button>
 
                         <button 
                           type="button"
                           onClick={() => handleToggleItemStatus(idx, 'regular')}
-                          className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 ${
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all duration-300 ${
                             item.status === 'regular' 
-                              ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20 scale-105' 
-                              : 'bg-white/5 text-muted hover:bg-white/10'
+                              ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' 
+                              : 'text-muted hover:text-white hover:bg-white/5'
                           }`}
+                          title="Regular"
                         >
-                          <AlertCircle size={18} className={item.status === 'regular' ? 'animate-pulse' : ''} />
-                          <span className="text-[9px] font-black tracking-widest uppercase">MEDIO</span>
+                          <AlertCircle size={16} className={item.status === 'regular' ? 'animate-pulse' : ''} />
+                          <span className="text-[10px] font-black">FIX</span>
                         </button>
 
                         <button 
                           type="button"
                           onClick={() => handleToggleItemStatus(idx, 'malo')}
-                          className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 ${
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all duration-300 ${
                             item.status === 'malo' 
-                              ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20 scale-105' 
-                              : 'bg-white/5 text-muted hover:bg-white/10'
+                              ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' 
+                              : 'text-muted hover:text-white hover:bg-white/5'
                           }`}
+                          title="Malo"
                         >
-                          <XCircle size={18} className={item.status === 'malo' ? 'animate-pulse' : ''} />
-                          <span className="text-[9px] font-black tracking-widest uppercase">MALO</span>
+                          <XCircle size={16} className={item.status === 'malo' ? 'animate-pulse' : ''} />
+                          <span className="text-[10px] font-black">BAD</span>
                         </button>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="p-xl pt-none border-t border-white/5 bg-black/20">
+            <div className="p-xl border-t border-white/5 bg-black/40 backdrop-blur-xl">
               <button 
                 type="button" 
-                className="w-full h-14 rounded-2xl bg-accent text-white font-black tracking-widest uppercase text-sm flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-accent/20 cursor-pointer disabled:opacity-50"
+                className="w-full h-16 rounded-[2rem] bg-accent text-white font-black tracking-widest uppercase text-sm flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-2xl shadow-accent/20 cursor-pointer disabled:opacity-50"
                 onClick={handleSaveInspection}
                 disabled={loading}
               >
                 {loading ? (
-                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                    <div className="w-6 h-6 border-3 border-white/20 border-t-white rounded-full animate-spin"></div>
                 ) : (
                     <>
-                        <ShieldCheck size={20} />
-                        GUARDAR REVISIÓN
+                        <ShieldCheck size={24} />
+                        FINALIZAR INSPECCIÓN DE ÉSTA HABITACIÓN
                     </>
                 )}
               </button>
