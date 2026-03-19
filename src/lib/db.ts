@@ -32,13 +32,26 @@ export class AppDatabase extends Dexie {
 
 export const db = new AppDatabase();
 
-// Compatibilidad con SyncManager existente
+// Compatibilidad con SyncManager existente y Planificacion
 export const dbService = {
   async getSyncQueue(): Promise<OfflineMutation[]> {
     return await db.offline_mutations.toArray();
   },
   async removeFromSyncQueue(id: number) {
     await db.offline_mutations.delete(id);
+  },
+  async getAll(table: string): Promise<any[]> {
+    const cached = await db.offline_cache.where('table').equals(table).toArray();
+    return cached.map(c => c.data);
+  },
+  async putBatch(table: string, data: any[]) {
+    await db.offline_cache.bulkPut(data.map(d => ({
+      id: d.id,
+      table,
+      data: d,
+      hotel_id: d.hotel_id,
+      timestamp: new Date().toISOString()
+    })));
   }
 };
 

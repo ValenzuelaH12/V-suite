@@ -84,7 +84,17 @@ export default function Planificacion() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [creatingTask, setCreatingTask] = useState(null)
-  const [newForm, setNewForm] = useState({ titulo: '', descripcion: '', frecuencia: 'eventual', tipo: 'mantenimiento', foto_url: '', checklist_items: [] as string[] })
+  const [newForm, setNewForm] = useState({ 
+    titulo: '', 
+    descripcion: '', 
+    frecuencia: 'eventual', 
+    tipo: 'mantenimiento', 
+    foto_url: '', 
+    checklist_items: [] as string[],
+    entidad_objetivo: 'habitaciones',
+    activo_id: ''
+  })
+  const [assets, setAssets] = useState<any[]>([])
   const [uploading, setUploading] = useState(false)
   const [newCheckItem, setNewCheckItem] = useState('')
 
@@ -164,7 +174,9 @@ export default function Planificacion() {
       frecuencia: 'eventual',
       tipo: 'mantenimiento',
       foto_url: '',
-      checklist_items: []
+      checklist_items: [],
+      entidad_objetivo: 'habitaciones',
+      activo_id: ''
     })
   }
 
@@ -180,6 +192,8 @@ export default function Planificacion() {
         tipo: newForm.tipo,
         foto_url: newForm.foto_url,
         checklist_items: newForm.checklist_items,
+        entidad_objetivo: newForm.entidad_objetivo,
+        activo_id: (newForm.entidad_objetivo === 'activo_individual' && newForm.activo_id) ? newForm.activo_id : null,
         hotel_id: activeHotelId
       }
 
@@ -253,6 +267,14 @@ export default function Planificacion() {
         }, {});
         setInspectedRooms(mapped);
       }
+
+      // 4. Si es un activo individual, abrirlo automáticamente para inspección si no está revisado
+      if (task.entidad_objetivo === 'activo_individual' && task.activo_id) {
+        const asset = assets.find(a => a.id === task.activo_id);
+        if (asset && !inspectedRooms[asset.id]) {
+          handleOpenInspection({ ...asset, tipo_entidad: 'activo' });
+        }
+      }
     } catch (error: any) {
       toast.error("Error al iniciar ejecución: " + error.message);
     } finally {
@@ -305,7 +327,7 @@ export default function Planificacion() {
           ejecucion_id: executionId,
           entidad_id: selectedRoom.id,
           entidad_nombre: selectedRoom.nombre,
-          entidad_tipo: 'habitacion',
+          entidad_tipo: selectedRoom.tipo_entidad || 'habitacion',
           estado: status,
           checklist_resultados: inspectionChecklist,
           hotel_id: activeHotelId
@@ -424,6 +446,10 @@ export default function Planificacion() {
        // Fetch rooms for detailed maintenance
        supabase.from('habitaciones').select('*').eq('hotel_id', activeHotelId).order('nombre')
          .then(({ data }) => setRooms(data || []));
+       
+       // Fetch assets for linking
+       supabase.from('activos').select('*').eq('hotel_id', activeHotelId).order('nombre')
+         .then(({ data }) => setAssets(data || []));
     }
   }, [activeHotelId])
 
@@ -993,10 +1019,39 @@ export default function Planificacion() {
                 </div>
                 <div className="input-group mb-md">
                   <label className="input-label">Descripción / Detalles</label>
-                  <textarea className="input" rows={3} value={newForm.descripcion}
+                  <textarea className="input" rows={2} value={newForm.descripcion}
                     placeholder="Detalles adicionales sobre el trabajo..."
                     onChange={e => setNewForm({...newForm, descripcion: e.target.value})}></textarea>
                 </div>
+
+                <div className="input-group mb-md">
+                  <label className="input-label">Objetivo de la Tarea</label>
+                  <div className="flex gap-sm">
+                    <button type="button" 
+                      className={`btn btn-xs flex-1 ${newForm.entidad_objetivo === 'habitaciones' ? 'btn-primary' : 'bg-white/5 border border-white/10'}`}
+                      onClick={() => setNewForm({...newForm, entidad_objetivo: 'habitaciones'})}>Habitaciones</button>
+                    <button type="button" 
+                      className={`btn btn-xs flex-1 ${newForm.entidad_objetivo === 'activo_individual' ? 'btn-primary' : 'bg-white/5 border border-white/10'}`}
+                      onClick={() => setNewForm({...newForm, entidad_objetivo: 'activo_individual'})}>Activo Individual</button>
+                  </div>
+                </div>
+
+                {newForm.entidad_objetivo === 'activo_individual' && (
+                  <div className="input-group mb-md animate-in slide-in-from-top-2 duration-300">
+                    <label className="input-label text-accent">Seleccionar Equipo / Activo</label>
+                    <select 
+                      className="select border-accent/20 bg-accent/5"
+                      value={newForm.activo_id}
+                      onChange={e => setNewForm({...newForm, activo_id: e.target.value})}
+                      required
+                    >
+                      <option value="">Elegir activo...</option>
+                      {assets.map(a => (
+                        <option key={a.id} value={a.id}>{a.nombre} ({a.tipo})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="input-group mb-md">
                   <label className="input-label">Foto Adjunta (Opcional)</label>
                   <input type="file" accept="image/*" className="input" 
@@ -1230,8 +1285,11 @@ export default function Planificacion() {
                     </div>
 
                     <div className="grid grid-cols-3 md:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto pr-md custom-scrollbar custom-grid-animate">
-                      {rooms
-                        .filter(r => r.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+                      {(completingTask?.entidad_objetivo === 'activo_individual' 
+                        ? assets.filter(a => a.id === completingTask.activo_id)
+                        : rooms
+                      )
+                        .filter(r => (r.nombre || r.titulo || '').toLowerCase().includes(searchTerm.toLowerCase()))
                         .filter(r => {
                           if (roomFilter === 'pending') return !inspectedRooms[r.id];
                           if (roomFilter === 'done') return !!inspectedRooms[r.id];
@@ -1335,8 +1393,12 @@ export default function Planificacion() {
           <div className="modal-content max-w-lg bg-[#0a0a0f]/95 border border-white/10 ring-1 ring-white/5 shadow-2xl overflow-hidden rounded-[2.5rem] animate-in fade-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
             <div className="modal-header border-b border-white/5 py-lg px-xl bg-gradient-to-r from-accent/10 to-transparent">
               <div className="flex flex-col">
-                <span className="text-[10px] text-accent font-black tracking-[0.2em] uppercase mb-1">INSPECCIÓN DE UNIDAD</span>
-                <h2 className="text-2xl font-black text-white tracking-tight">Habitación {selectedRoom.nombre}</h2>
+                <span className="text-[10px] text-accent font-black tracking-[0.2em] uppercase mb-1">
+                  {selectedRoom.tipo_entidad === 'activo' ? `INSPECCIÓN DE EQUIPO: ${selectedRoom.tipo || ''}` : 'INSPECCIÓN DE UNIDAD'}
+                </span>
+                <h2 className="text-2xl font-black text-white tracking-tight">
+                  {selectedRoom.tipo_entidad === 'activo' ? selectedRoom.nombre : `Habitación ${selectedRoom.nombre}`}
+                </h2>
               </div>
               <button className="p-2.5 rounded-2xl bg-white/5 text-muted hover:text-white hover:bg-white/10 transition-all" onClick={() => setSelectedRoom(null)}><X size={20} /></button>
             </div>
