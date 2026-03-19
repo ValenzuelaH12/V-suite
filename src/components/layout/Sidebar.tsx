@@ -46,7 +46,6 @@ export default function Sidebar({ isOpen, closeSidebar }) {
     { id: 'inventario', name: 'Inventario', path: '/inventario', icon: Package },
     { id: 'lecturas', name: 'Lecturas', path: '/lecturas', icon: Activity },
     { id: 'chat', name: 'Chat', path: '/chat', icon: MessageSquare },
-    { id: 'planificacion', name: 'Planificación', path: '/planificacion', icon: Calendar },
     { id: 'insights', name: 'V-Insights', path: '/insights', icon: BarChart3 },
     { id: 'superadmin', name: 'Control de Cadena', path: '/superadmin', icon: Building2, hidden: availableHotels.length <= 1 && profile?.rol !== 'super_admin' },
     { id: 'configuracion', name: 'Configuración', path: '/configuracion', icon: Settings },

@@ -9,7 +9,6 @@ import { UserManager } from '../components/features/config/UserManager';
 import { AssetManager } from '../components/features/config/AssetManager';
 import { ZoneManager } from '../components/features/config/ZoneManager';
 import { MeterManager } from '../components/features/config/MeterManager';
-import { MaintenanceManager } from '../components/features/config/MaintenanceManager';
 import { NexusConfig } from '../components/features/config/NexusConfig';
 import { SettingsManager } from '../components/features/config/SettingsManager';
 import { HotelManager } from '../components/features/config/HotelManager';
@@ -26,7 +25,6 @@ const TABS = [
   { id: 'activos', name: 'Activos / QR', icon: Package },
   { id: 'incidencias', name: 'Tipos Incidencias', icon: Activity },
   { id: 'contadores', name: 'Contadores', icon: Activity },
-  { id: 'mantenimiento', name: 'Mantenimiento', icon: Calendar },
   { id: 'v-nexus', name: 'V-Nexus', icon: Smartphone },
   { id: 'ajustes', name: 'Ajustes', icon: Settings },
 ];
@@ -51,28 +49,6 @@ export default function Configuracion() {
   const { data: tipos = [], isLoading: typesLoading, refetch: refetchIncidentTypes } = useIncidentTypes(activeHotelId);
   
   // Mantenimiento aún usa supabase directamente por ahora, o podemos centralizarlo luego
-  const [maintenance, setMaintenance] = useState([]);
-  const [plantillas, setPlantillas] = useState([]);
-  const [maintLoading, setMaintLoading] = useState(false);
-
-  const fetchMaint = async () => {
-    if (!activeHotelId) return;
-    setMaintLoading(true);
-    const [m, p] = await Promise.all([
-      supabase.from('mantenimiento_preventivo').select('*').eq('hotel_id', activeHotelId).order('frecuencia'),
-      supabase.from('mantenimiento_plantillas').select('*').eq('hotel_id', activeHotelId).order('nombre')
-    ]);
-    setMaintenance(m.data || []);
-    setPlantillas(p.data || []);
-    setMaintLoading(false);
-  };
-
-  useEffect(() => {
-    fetchMaint();
-  }, [activeHotelId]);
-
-  const loading = usersLoading || zonesLoading || roomsLoading || assetsLoading || countersLoading || typesLoading || maintLoading;
-  
   const fetchAll = () => {
     refetchUsers();
     refetchZones();
@@ -80,13 +56,16 @@ export default function Configuracion() {
     refetchAssets();
     refetchCounters();
     refetchIncidentTypes();
-    fetchMaint();
   };
+
+
+  const loading = usersLoading || zonesLoading || roomsLoading || assetsLoading || countersLoading || typesLoading;
 
   const showMsg = (m: { type: 'success' | 'error', text: string }) => {
     setMsg(m);
     setTimeout(() => setMsg({ type: '', text: '' }), 4000);
   };
+
 
   if (loading && users.length === 0) {
     return (
@@ -197,16 +176,6 @@ export default function Configuracion() {
           {activeTab === 'contadores' && (
             <MeterManager 
               counters={contadores} 
-              onMessage={showMsg} 
-              onRefresh={fetchAll} 
-              activeHotelId={activeHotelId}
-            />
-          )}
-
-          {activeTab === 'mantenimiento' && (
-            <MaintenanceManager 
-              maintenance={maintenance} 
-              templates={plantillas} 
               onMessage={showMsg} 
               onRefresh={fetchAll} 
               activeHotelId={activeHotelId}
