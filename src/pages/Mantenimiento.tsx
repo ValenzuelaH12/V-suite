@@ -36,6 +36,12 @@ export default function MantenimientoTareas() {
   const [saving, setSaving] = useState(false)
   const [view, setView] = useState<'pendientes' | 'historial'>('pendientes')
   const [plans, setPlans] = useState<any[]>([])
+  const [msg, setMsg] = useState<{ type: 'success' | 'error' | '', text: string }>({ type: '', text: '' })
+
+  const showMsg = (type: 'success' | 'error', text: string) => {
+    setMsg({ type, text })
+    setTimeout(() => setMsg({ type: '', text: '' }), 5000)
+  }
 
   useEffect(() => {
     fetchTasks()
@@ -140,8 +146,9 @@ export default function MantenimientoTareas() {
 
       setCurrentTask(null)
       fetchTasks()
+      showMsg('success', 'Inspección técnica guardada correctamente')
     } catch (err: any) {
-      console.error('Error al finalizar tarea:', err)
+      showMsg('error', 'Error al guardar inspección: ' + err.message)
     } finally {
       setSaving(false)
     }
@@ -149,7 +156,10 @@ export default function MantenimientoTareas() {
 
   // Lanzar un plan (Generar tareas para todo su scope)
   const handleLaunchPlan = async (plan: any) => {
-     if (!activeHotelId) return;
+     if (!activeHotelId) {
+        showMsg('error', 'Debes seleccionar un hotel para lanzar planes')
+        return;
+     }
      setLoading(true);
      try {
         const tareasParaInsertar: any[] = [];
@@ -168,14 +178,18 @@ export default function MantenimientoTareas() {
            });
         });
 
-        if (tareasParaInsertar.length === 0) return;
+        if (tareasParaInsertar.length === 0) {
+           showMsg('error', 'El plan no tiene ubicaciones configuradas')
+           return;
+        }
 
         const { error } = await supabase.from('mantenimiento_tareas').insert(tareasParaInsertar);
         if (error) throw error;
 
+        showMsg('success', `🚀 Generadas ${tareasParaInsertar.length} tareas para el plan ${plan.nombre}`)
         fetchTasks();
      } catch (err: any) {
-        console.error('Error al lanzar plan:', err);
+        showMsg('error', 'Error al generar tareas: ' + err.message)
      } finally {
         setLoading(false);
      }
@@ -183,6 +197,16 @@ export default function MantenimientoTareas() {
 
   return (
     <div className="v-tasks-page p-md md:p-xl animate-fade-in custom-scrollbar h-screen overflow-y-auto pb-[100px]">
+      {/* Toast Notification */}
+      {msg.text && (
+        <div className={`fixed top-xl right-xl z-[150] p-6 rounded-[2rem] shadow-2xl backdrop-blur-xl border border-white/10 flex items-center gap-md animate-slide-right ${msg.type === 'error' ? 'bg-danger/90 text-white' : 'bg-success/90 text-white'}`}>
+          <div className="p-2 bg-white/20 rounded-xl">
+             {msg.type === 'error' ? <AlertTriangle size={20} /> : <CheckCircle2 size={20} />}
+          </div>
+          <p className="text-sm font-black tracking-tight">{msg.text}</p>
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="v-page-header mb-xl bg-white/[0.02] p-8 rounded-[2.5rem] border border-white/5 shadow-xl">
         <div className="flex flex-col gap-xs">
