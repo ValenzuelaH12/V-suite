@@ -14,7 +14,8 @@ import {
   BarChart3,
   Building2,
   Sun,
-  Moon
+  Moon,
+  ShieldCheck
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
@@ -43,6 +44,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
   const navItems = [
     { id: 'dashboard', name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { id: 'incidencias', name: 'Incidencias', path: '/incidencias', icon: AlertTriangle },
+    { id: 'mantenimiento', name: 'Mantenimiento', path: '/mantenimiento', icon: ShieldCheck },
     { id: 'inventario', name: 'Inventario', path: '/inventario', icon: Package },
     { id: 'lecturas', name: 'Lecturas', path: '/lecturas', icon: Activity },
     { id: 'chat', name: 'Chat', path: '/chat', icon: MessageSquare },
