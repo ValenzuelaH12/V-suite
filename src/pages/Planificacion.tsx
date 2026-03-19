@@ -63,8 +63,9 @@ export default function Planificacion() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [creatingTask, setCreatingTask] = useState(null)
-  const [newForm, setNewForm] = useState({ titulo: '', descripcion: '', frecuencia: 'eventual', tipo: 'mantenimiento', foto_url: '' })
+  const [newForm, setNewForm] = useState({ titulo: '', descripcion: '', frecuencia: 'eventual', tipo: 'mantenimiento', foto_url: '', checklist_items: [] as string[] })
   const [uploading, setUploading] = useState(false)
+  const [newCheckItem, setNewCheckItem] = useState('')
 
   // Formatear tareas para el calendario
   const events = tasks.map(t => ({
@@ -141,7 +142,8 @@ export default function Planificacion() {
       descripcion: '', 
       frecuencia: 'eventual',
       tipo: 'mantenimiento',
-      foto_url: ''
+      foto_url: '',
+      checklist_items: []
     })
   }
 
@@ -154,7 +156,8 @@ export default function Planificacion() {
         descripcion: newForm.descripcion,
         frecuencia: newForm.frecuencia,
         proxima_fecha: creatingTask.fecha,
-        tipo: newForm.tipo
+        tipo: newForm.tipo,
+        checklist_items: newForm.checklist_items
       }
       if (activeHotelId) payload.hotel_id = activeHotelId;
 
@@ -821,7 +824,7 @@ export default function Planificacion() {
                     </div>
                   )}
                 </div>
-                <div className="input-group">
+                <div className="input-group mb-md">
                   <label className="input-label">Frecuencia</label>
                   <select className="select" value={newForm.frecuencia}
                     onChange={e => setNewForm({...newForm, frecuencia: e.target.value})}>
@@ -833,6 +836,59 @@ export default function Planificacion() {
                     <option value="anual">Anual</option>
                   </select>
                 </div>
+
+                {newForm.tipo === 'mantenimiento' && (
+                  <div className="input-group mt-md border-t border-white/5 pt-md">
+                    <label className="input-label">Checklist de Habitación (Opcional)</label>
+                    <div className="flex gap-sm mb-sm">
+                      <input 
+                        type="text" 
+                        className="input flex-1" 
+                        placeholder="Añadir ítem (Cama, TV, etc.)"
+                        value={newCheckItem}
+                        onChange={e => setNewCheckItem(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newCheckItem.trim()) {
+                              setNewForm(prev => ({ ...prev, checklist_items: [...prev.checklist_items, newCheckItem.trim()] }));
+                              setNewCheckItem('');
+                            }
+                          }
+                        }}
+                      />
+                      <button type="button" className="btn btn-secondary px-md" 
+                        onClick={() => {
+                          if (newCheckItem.trim()) {
+                            setNewForm(prev => ({ ...prev, checklist_items: [...prev.checklist_items, newCheckItem.trim()] }));
+                            setNewCheckItem('');
+                          }
+                        }}><Plus size={18} /></button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-xs mb-md">
+                      {['Cama', 'Sofá', 'Ducha', 'TV', 'Mesa'].map(item => (
+                        <button key={item} type="button" 
+                          className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 hover:bg-white/10"
+                          onClick={() => {
+                            if (!newForm.checklist_items.includes(item)) {
+                              setNewForm(prev => ({ ...prev, checklist_items: [...prev.checklist_items, item] }));
+                            }
+                          }}>+ {item}</button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap gap-xs max-h-24 overflow-y-auto">
+                      {newForm.checklist_items.map((item, i) => (
+                        <div key={i} className="flex items-center gap-xs bg-accent/20 text-accent px-sm py-xs rounded text-xs border border-accent/30">
+                          {item}
+                          <X size={12} className="cursor-pointer hover:text-white" 
+                            onClick={() => setNewForm({...newForm, checklist_items: newForm.checklist_items.filter((_, idx) => idx !== i)})} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-ghost" onClick={() => setCreatingTask(null)}>Cancelar</button>
@@ -864,6 +920,22 @@ export default function Planificacion() {
                   <textarea className="input" rows={3} placeholder="Escribe si encontraste algo inusual..."
                     value={notes} onChange={e => setNotes(e.target.value)}></textarea>
                 </div>
+
+                {completingTask.checklist_items?.length > 0 && (
+                  <div className="mt-md p-md bg-amber-500/10 border border-amber-500/20 rounded-md">
+                    <div className="flex items-center gap-sm text-amber-400 mb-xs">
+                      <AlertTriangle size={16} />
+                      <span className="font-bold text-sm">Inspección Detallada Requerida</span>
+                    </div>
+                    <p className="text-xs text-muted mb-md">Esta tarea tiene un checklist específico de habitaciones que debe completarse desde el panel de Mantenimiento para un registro detallado de estados.</p>
+                    <button type="button" className="btn btn-sm btn-secondary w-full" onClick={() => {
+                       // En un entorno real esto cambiaría la pestaña en Configuracion.tsx
+                       // Por ahora informamos al usuario
+                       toast.info("Usa la pestaña 'Mantenimiento' en Configuración para esta inspección detallada.");
+                    }}>Ir a Panel de Mantenimiento</button>
+                  </div>
+                )}
+
                 <div className="mt-lg">
                   <label className="input-label mb-sm">Elementos Revisados:</label>
                   <div className="bg-neutral-5 rounded-md border-dashed-accent p-md">

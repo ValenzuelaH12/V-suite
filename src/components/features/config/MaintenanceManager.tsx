@@ -111,20 +111,28 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
         ? executingTask.checklist_items 
         : (dbCategories.find(c => c.nombre === executingTask?.categoria)?.subcategorias || []);
       
-      setInspectionChecklist(checklist.map((name: string) => ({ name, status: 'ok' })));
+      // Default to 'bueno' status
+      setInspectionChecklist(checklist.map((name: string) => ({ name, status: 'bueno' })));
     }
   };
 
-  const handleToggleItem = (index: number) => {
+  const handleToggleItemStatus = (index: number, newStatus: 'bueno' | 'regular' | 'malo') => {
     const updated = [...inspectionChecklist];
-    updated[index].status = updated[index].status === 'ok' ? 'issue' : 'ok';
+    updated[index].status = newStatus;
     setInspectionChecklist(updated);
   };
 
   const handleSaveInspection = async () => {
     if (!selectedRoom || !executionId) return;
-    const hasIssue = inspectionChecklist.some(i => i.status === 'issue');
-    const status = hasIssue ? 'issue' : 'ok';
+    
+    // Logic: Room is 'issue' if any item is 'malo' or 'regular'
+    const hasBad = inspectionChecklist.some(i => i.status === 'malo');
+    const hasRegular = inspectionChecklist.some(i => i.status === 'regular');
+    
+    let status: 'ok' | 'issue' = 'ok';
+    if (hasBad || hasRegular) {
+      status = 'issue';
+    }
     try {
       const { error } = await supabase
         .from('mantenimiento_entidades')
@@ -376,11 +384,14 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
                     'bg-white/5 border-white/5 hover:border-white/20'
                   }`}
                 >
-                  <div className={`p-3 rounded-2xl ${inspection?.status === 'ok' ? 'bg-emerald-500 text-white' : inspection?.status === 'issue' ? 'bg-orange-500 text-white' : 'bg-white/5 text-muted'}`}>
+                  <div className={`p-3 rounded-2xl ${
+                    inspection?.status === 'ok' ? 'bg-emerald-500 text-white' : 
+                    inspection?.status === 'issue' ? 'bg-amber-500 text-white' : 'bg-white/5 text-muted'
+                  }`}>
                     {inspection?.status === 'issue' ? <AlertTriangle size={24} /> : <ShieldCheck size={24} />}
                   </div>
                   <span className="text-xl font-black text-white">{room.nombre}</span>
-                  {inspection && <div className="absolute top-2 right-2"><CheckCircle size={14} className={inspection.status === 'ok' ? 'text-emerald-400' : 'text-orange-400'} /></div>}
+                  {inspection && <div className="absolute top-2 right-2"><CheckCircle size={14} className={inspection.status === 'ok' ? 'text-emerald-400' : 'text-amber-400'} /></div>}
                 </button>
               );
             })}
@@ -500,6 +511,25 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
                     variant="ghost"
                   />
                 </div>
+                
+                {/* Sugerencias Rápidas */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {['Cama', 'Sofá', 'Mesa', 'Ducha', 'TV', 'Minibar', 'Climatización'].map(item => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => {
+                        if (!newMaint.checklist_items.includes(item)) {
+                          setNewMaint(prev => ({ ...prev, checklist_items: [...prev.checklist_items, item] }));
+                        }
+                      }}
+                      className="text-[10px] px-2 py-1 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-muted hover:text-white transition-all"
+                    >
+                      + {item}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1">
                   {newMaint.checklist_items.map((item, i) => (
                     <Badge key={i} className="flex gap-1 items-center bg-indigo-500/20 text-indigo-300 border-indigo-500/30">
@@ -553,10 +583,35 @@ export const MaintenanceManager: React.FC<MaintenanceManagerProps> = ({
         <div className="p-lg flex flex-col gap-lg">
           <div className="flex flex-col gap-md">
             {inspectionChecklist.map((item, idx) => (
-              <button key={idx} onClick={() => handleToggleItem(idx)} className={`p-md rounded-2xl border flex justify-between items-center transition-all ${item.status === 'ok' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-orange-500/10 border-orange-500/30'}`}>
-                <span className="font-bold text-white uppercase text-xs">{item.name}</span>
-                {item.status === 'ok' ? <ShieldCheck className="text-emerald-400" /> : <AlertTriangle className="text-orange-400" />}
-              </button>
+              <div key={idx} className="p-md rounded-2xl border border-white/5 bg-white/5 flex flex-col gap-sm">
+                <div className="flex justify-between items-center px-xs">
+                  <span className="font-bold text-white uppercase text-xs">{item.name}</span>
+                  {item.status === 'bueno' && <Badge className="bg-emerald-500 text-white text-[10px]">BUEN ESTADO</Badge>}
+                  {item.status === 'regular' && <Badge className="bg-amber-500 text-white text-[10px]">ESTADO MEDIO</Badge>}
+                  {item.status === 'malo' && <Badge className="bg-rose-500 text-white text-[10px]">MAL ESTADO</Badge>}
+                </div>
+                
+                <div className="grid grid-cols-3 gap-2">
+                  <button 
+                    onClick={() => handleToggleItemStatus(idx, 'bueno')}
+                    className={`py-2 rounded-xl text-[10px] font-black transition-all ${item.status === 'bueno' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-white/5 text-muted hover:text-white'}`}
+                  >
+                    BUENO
+                  </button>
+                  <button 
+                    onClick={() => handleToggleItemStatus(idx, 'regular')}
+                    className={`py-2 rounded-xl text-[10px] font-black transition-all ${item.status === 'regular' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-white/5 text-muted hover:text-white'}`}
+                  >
+                    MEDIO
+                  </button>
+                  <button 
+                    onClick={() => handleToggleItemStatus(idx, 'malo')}
+                    className={`py-2 rounded-xl text-[10px] font-black transition-all ${item.status === 'malo' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-white/5 text-muted hover:text-white'}`}
+                  >
+                    MALO
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
           <Button variant="primary" onClick={handleSaveInspection}>Guardar Revisión</Button>
