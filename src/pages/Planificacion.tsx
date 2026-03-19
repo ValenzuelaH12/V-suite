@@ -24,7 +24,11 @@ import {
   User,
   Edit3,
   Trash2,
-  Check
+  Check,
+  Layers,
+  ShieldCheck,
+  CheckCircle2,
+  Layout
 } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -53,7 +57,17 @@ export default function Planificacion() {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState({ type: '', text: '' })
-  const [completingTask, setCompletingTask] = useState(null)
+  const [completingTask, setCompletingTask] = useState<any>(null)
+  
+  // -- ESTADOS PARA EJECUCIÓN DETALLADA --
+  const [isDetailedMode, setIsDetailedMode] = useState(false)
+  const [rooms, setRooms] = useState<any[]>([])
+  const [executingTaskId, setExecutingTaskId] = useState<string | null>(null)
+  const [executionId, setExecutionId] = useState<string | null>(null)
+  const [inspectedRooms, setInspectedRooms] = useState<Record<string, any>>({})
+  const [selectedRoom, setSelectedRoom] = useState<any>(null)
+  const [inspectionChecklist, setInspectionChecklist] = useState<any[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
   const [editingTask, setEditingTask] = useState(null)
   const [editForm, setEditForm] = useState({ titulo: '', descripcion: '', frecuencia: '', proxima_fecha: '' })
   const [allElements, setAllElements] = useState([])
@@ -157,9 +171,9 @@ export default function Planificacion() {
         frecuencia: newForm.frecuencia,
         proxima_fecha: creatingTask.fecha,
         tipo: newForm.tipo,
-        checklist_items: newForm.checklist_items
+        checklist_items: newForm.checklist_items,
+        hotel_id: activeHotelId
       }
-      if (activeHotelId) payload.hotel_id = activeHotelId;
 
       const { error } = await supabase
         .from('mantenimiento_preventivo')
@@ -177,10 +191,192 @@ export default function Planificacion() {
     }
   }
 
+  // -- FUNCIONES EJECUCIÓN DETALLADA --
+  const handleStartDetailedExecution = async (task: any) => {
+    try {
+      setLoading(true);
+      const { data: exec, error: execError } = await supabase
+        .from('mantenimiento_ejecucion')
+        .insert([{
+          tarea_id: task.id,
+          hotel_id: activeHotelId,
+          tecnico_id: profile?.id,
+          estado: 'in_progress'
+        }])
+        .select()
+        .single();
+
+      if (execError) throw execError;
+      
+      setExecutionId(exec.id);
+      setExecutingTaskId(task.id);
+      setIsDetailedMode(true);
+      setInspectedRooms({});
+      
+      // Load previously saved entities if any (resuming)
+      const { data: entities } = await supabase
+        .from('mantenimiento_entidades')
+        .select('*')
+        .eq('ejecucion_id', exec.id);
+      
+      if (entities?.length) {
+        const mapped = entities.reduce((acc: any, ent: any) => {
+          acc[ent.entidad_id] = { status: ent.estado, checklist: ent.checklist_resultados };
+          return acc;
+        }, {});
+        setInspectedRooms(mapped);
+      }
+    } catch (error: any) {
+      toast.error("Error al iniciar ejecución detallada: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenInspection = (room: any) => {
+    setSelectedRoom(room);
+    const existing = inspectedRooms[room.id];
+    if (existing) {
+      setInspectionChecklist(existing.checklist);
+    } else {
+      const task = tasks.find(t => t.id === executingTaskId);
+      const checklist = task?.checklist_items?.length > 0 ? task.checklist_items : [];
+      setInspectionChecklist(checklist.map((name: string) => ({ name, status: 'bueno' })));
+    }
+  };
+
+  const handleToggleItemStatus = (index: number, newStatus: 'bueno' | 'regular' | 'malo') => {
+    const updated = [...inspectionChecklist];
+    updated[index].status = newStatus;
+    setInspectionChecklist(updated);
+  };
+
+  const handleSaveInspection = async () => {
+    if (!selectedRoom || !executionId) return;
+    
+    const hasBad = inspectionChecklist.some(i => i.status === 'malo');
+    const hasRegular = inspectionChecklist.some(i => i.status === 'regular');
+    let status: 'ok' | 'issue' = (hasBad || hasRegular) ? 'issue' : 'ok';
+
+    try {
+      const { error } = await supabase
+        .from('mantenimiento_entidades')
+        .upsert([{
+          ejecucion_id: executionId,
+          entidad_id: selectedRoom.id,
+          entidad_nombre: selectedRoom.nombre,
+          entidad_tipo: 'habitacion',
+          estado: status,
+          checklist_resultados: inspectionChecklist,
+          hotel_id: activeHotelId
+        }], { onConflict: 'ejecucion_id,entidad_id' });
+
+      if (error) throw error;
+      
+      setInspectedRooms(prev => ({
+        ...prev,
+        [selectedRoom.id]: { status, checklist: inspectionChecklist }
+      }));
+      setSelectedRoom(null);
+      toast.success(`Habitación ${selectedRoom.nombre} guardada`);
+    } catch (error: any) {
+      toast.error("Error al guardar: " + error.message);
+    }
+  };
+
+  const handleFinishDetailedExecution = async () => {
+    if (!executionId) return;
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('mantenimiento_ejecucion')
+        .update({ 
+          estado: 'completed',
+          completado_at: new Date().toISOString()
+        })
+        .eq('id', executionId);
+
+      if (error) throw error;
+      
+      // Complete parent task and schedule next
+      await executeStandardCompletion();
+      toast.success("Mantenimiento finalizado con éxito");
+      
+      // Reset detailed mode states
+      setIsDetailedMode(false);
+      setExecutionId(null);
+      setExecutingTaskId(null);
+      setInspectedRooms({});
+      setCompletingTask(null);
+    } catch (error: any) {
+      toast.error("Error al finalizar: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const executeStandardCompletion = async () => {
+    if (!completingTask) return
+    const todayString = new Date().toISOString().split('T')[0]
+    const nextDate = calculateNextDate(todayString, completingTask.frecuencia)
+    
+    const { error: histError } = await supabase
+      .from('historial_mantenimiento')
+      .insert([{
+        tarea_id: completingTask.id,
+        completado_por: profile.id,
+        notas: isDetailedMode ? 'Inspección detallada completada.' : notes,
+        items_completados: isDetailedMode ? [] : selectedElements,
+        hotel_id: activeHotelId
+      }])
+    
+    if (histError) throw histError
+    
+    const { error: taskError } = await supabase
+      .from('mantenimiento_preventivo')
+      .update({ proxima_fecha: nextDate, ultima_ejecucion: new Date().toISOString() })
+      .eq('id', completingTask.id)
+      .eq('hotel_id', activeHotelId)
+    
+    if (taskError) throw taskError
+    
+    setMsg({ type: 'success', text: `Tarea "${completingTask.titulo}" completada. Próxima revisión: ${nextDate}` })
+    
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#6366f1', '#10b981', '#f59e0b']
+    })
+
+    fetchTasks()
+    fetchHistory()
+  }
+
+  const handleCompleteTask = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await executeStandardCompletion();
+      setCompletingTask(null)
+      setSelectedElements([])
+      setNotes('')
+    } catch (error: any) {
+      setMsg({ type: 'error', text: `Error al completar tarea: ${error.message}` })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchTasks()
     fetchHistory()
     fetchElements()
+    if (activeHotelId) {
+       // Fetch rooms for detailed maintenance
+       supabase.from('habitaciones').select('*').eq('hotel_id', activeHotelId).order('nombre')
+         .then(({ data }) => setRooms(data || []));
+    }
   }, [activeHotelId])
 
   const fetchTasks = async () => {
@@ -242,7 +438,6 @@ export default function Planificacion() {
     }
   }
 
-
   const calculateNextDate = (currentDate, frequency) => {
     const date = new Date(currentDate)
     switch (frequency) {
@@ -257,56 +452,6 @@ export default function Planificacion() {
     return date.toISOString().split('T')[0]
   }
 
-  const handleCompleteTask = async (e) => {
-    e.preventDefault()
-    if (!completingTask) return
-    setLoading(true)
-    try {
-      const todayString = new Date().toISOString().split('T')[0]
-      const nextDate = calculateNextDate(todayString, completingTask.frecuencia)
-      
-      const { error: histError } = await supabase
-        .from('historial_mantenimiento')
-        .insert([{
-          tarea_id: completingTask.id,
-          completado_por: profile.id,
-          notas: notes,
-          items_completados: selectedElements,
-          hotel_id: activeHotelId
-        }])
-      
-      if (histError) throw histError
-      
-      const { error: taskError } = await supabase
-        .from('mantenimiento_preventivo')
-        .update({ proxima_fecha: nextDate, ultima_ejecucion: new Date().toISOString() })
-        .eq('id', completingTask.id)
-        .eq('hotel_id', activeHotelId)
-      
-      if (taskError) throw taskError
-      
-      setMsg({ type: 'success', text: `Tarea "${completingTask.titulo}" completada. Próxima revisión: ${nextDate}` })
-      
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#6366f1', '#10b981', '#f59e0b']
-      })
-
-      setCompletingTask(null)
-      setSelectedElements([])
-      setNotes('')
-      fetchTasks()
-      fetchHistory()
-    } catch (error) {
-      setMsg({ type: 'error', text: `Error al completar tarea: ${error.message}` })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // --- Editar tarea ---
   const openEditModal = (task) => {
     setEditingTask(task)
     setEditForm({
@@ -961,14 +1106,143 @@ export default function Planificacion() {
                 <p className="text-xs text-muted mt-lg">
                   Al confirmar, la tarea se programará automáticamente para la siguiente fecha ({completingTask.frecuencia}).
                 </p>
+
+                {/* BOTÓN PARA MODO DETALLADO */}
+                {!isDetailedMode && (
+                  <div className="mt-md pt-md border-t border-white/5">
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary w-full flex items-center justify-center gap-sm py-md"
+                      onClick={() => handleStartDetailedExecution(completingTask)}
+                    >
+                      <Layers size={18} />
+                      Iniciar Inspección Detallada por Habitación
+                    </button>
+                    <p className="text-[10px] text-muted text-center mt-xs">Usa este modo para registrar el estado individual de cada habitación.</p>
+                  </div>
+                )}
+
+                {/* VISTA DE EJECUCIÓN DETALLADA (GRID DE HABITACIONES) */}
+                {isDetailedMode && (
+                  <div className="mt-lg border-t border-white/5 pt-lg">
+                    <div className="flex justify-between items-center mb-md">
+                      <h3 className="text-lg font-black text-white">Inspección de Habitaciones</h3>
+                      <div className="flex items-center gap-sm">
+                        <span className="text-xs text-muted font-bold capitalize">{Object.keys(inspectedRooms).length} / {rooms.length} Revisadas</span>
+                      </div>
+                    </div>
+
+                    <div className="mb-md relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar habitación..." 
+                        className="input pl-10 h-10 text-sm"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-80 overflow-y-auto pr-md custom-scrollbar">
+                      {rooms.filter(r => r.nombre.toLowerCase().includes(searchTerm.toLowerCase())).map(room => {
+                        const inspection = inspectedRooms[room.id];
+                        return (
+                          <button
+                            key={room.id}
+                            type="button"
+                            onClick={() => handleOpenInspection(room)}
+                            className={`room-chip-btn relative aspect-square flex flex-col items-center justify-center gap-1 rounded-xl transition-all border ${
+                              inspection?.status === 'ok' ? 'bg-emerald-500/10 border-emerald-500/30' : 
+                              inspection?.status === 'issue' ? 'bg-amber-500/10 border-amber-500/30' : 
+                              'bg-white/5 border-white/5 hover:border-white/20'
+                            }`}
+                          >
+                            <div className={`p-2 rounded-lg ${
+                              inspection?.status === 'ok' ? 'bg-emerald-500 text-white' : 
+                              inspection?.status === 'issue' ? 'bg-amber-500 text-white' : 'bg-white/5 text-muted'
+                            }`}>
+                              {inspection?.status === 'issue' ? <AlertTriangle size={16} /> : <ShieldCheck size={16} />}
+                            </div>
+                            <span className="text-[10px] font-black text-white">{room.nombre}</span>
+                            {inspection && <div className="absolute top-1 right-1"><CheckCircle size={10} className={inspection.status === 'ok' ? 'text-emerald-400' : 'text-amber-400'} /></div>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-lg pt-lg border-t border-white/5">
+                       <button 
+                         type="button" 
+                         className="btn btn-primary w-full py-md"
+                         onClick={handleFinishDetailedExecution}
+                         disabled={Object.keys(inspectedRooms).length === 0}
+                       >
+                         Finalizar Ejecución y Completar Tarea
+                       </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-ghost" onClick={() => setCompletingTask(null)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary ml-md" disabled={loading}>
-                  {loading ? 'Guardando...' : 'Confirmar Ejecución'}
-                </button>
-              </div>
+              
+              {!isDetailedMode && (
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-ghost" onClick={() => setCompletingTask(null)}>Cancelar</button>
+                  <button type="submit" className="btn btn-primary ml-md" disabled={loading}>
+                    {loading ? 'Guardando...' : 'Confirmar Ejecución'}
+                  </button>
+                </div>
+              )}
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL INSPECCIÓN INDIVIDUAL (DENTRO DE EJECUCIÓN DETALLADA) */}
+      {selectedRoom && (
+        <div className="modal-overlay z-[100]" onClick={() => setSelectedRoom(null)}>
+          <div className="modal-content max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Inspección Hab. {selectedRoom.nombre}</h2>
+              <button className="btn-icon btn-ghost" onClick={() => setSelectedRoom(null)}><X size={20} /></button>
+            </div>
+            <div className="modal-body p-lg flex flex-col gap-lg">
+              <div className="flex flex-col gap-md">
+                {inspectionChecklist.map((item, idx) => (
+                  <div key={idx} className="p-md rounded-2xl border border-white/5 bg-white/5 flex flex-col gap-sm">
+                    <div className="flex justify-between items-center px-xs">
+                      <span className="font-bold text-white uppercase text-xs">{item.name}</span>
+                      {item.status === 'bueno' && <span className="bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">BUEN ESTADO</span>}
+                      {item.status === 'regular' && <span className="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">ESTADO MEDIO</span>}
+                      {item.status === 'malo' && <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">MAL ESTADO</span>}
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                       {['bueno', 'regular', 'malo'].map(st => (
+                         <button 
+                           key={st}
+                           type="button"
+                           onClick={() => handleToggleItemStatus(idx, st as any)}
+                           className={`py-2 rounded-xl text-[10px] font-black transition-all ${
+                             item.status === st 
+                               ? (st === 'bueno' ? 'bg-emerald-500 text-white' : st === 'regular' ? 'bg-amber-500 text-white' : 'bg-rose-500 text-white') 
+                               : 'bg-white/5 text-muted'
+                           }`}
+                         >
+                           {st === 'bueno' ? 'BUENO' : st === 'regular' ? 'MEDIO' : 'MALO'}
+                         </button>
+                       ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-primary w-full py-md text-sm font-black"
+                onClick={handleSaveInspection}
+              >
+                Guardar Inspección
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1035,6 +1309,9 @@ export default function Planificacion() {
         .bg-neutral-5 { background: rgba(255,255,255,0.03); }
         .border-dashed-accent { border: 1px dashed rgba(99, 102, 241, 0.3); }
         .cursor-pointer { cursor: pointer; }
+        .room-chip-btn { border: 1px solid transparent; }
+        .room-chip-btn:hover { transform: scale(1.05); }
+        .rbc-event { cursor: pointer; }
         .export-dropdown {
           position: absolute;
           right: 0;
