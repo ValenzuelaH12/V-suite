@@ -190,10 +190,8 @@ export const preventivoService = {
       else if (template.frecuencia === 'trimestral' && now.getDate() === 1 && (now.getMonth() % 3 === 0)) shouldGenerate = true;
       else if (template.frecuencia === 'anual' && now.getDate() === 1 && now.getMonth() === 0) shouldGenerate = true;
 
-      if (!shouldGenerate) continue;
-
       const asigs = template.preventivo_asignaciones || [];
-      console.log(`Procesando plantilla "${template.nombre}" con ${asigs.length} asignaciones`);
+      console.log(`Procesando plantilla "${template.nombre}" con ${asigs.length} asignaciones. Hoy toca por frecuencia: ${shouldGenerate}`);
 
       for (const asig of asigs) {
         if (!asig.entidad_id) continue;
