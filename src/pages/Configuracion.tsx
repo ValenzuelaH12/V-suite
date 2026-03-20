@@ -50,23 +50,7 @@ export default function Configuracion() {
   const { data: contadores = [], isLoading: countersLoading, refetch: refetchCounters } = useCounters(activeHotelId);
   const { data: tipos = [], isLoading: typesLoading, refetch: refetchIncidentTypes } = useIncidentTypes(activeHotelId);
   
-  // Planes Preventivos
-  const [planes, setPlanes] = useState([]);
-  const [planesLoading, setPlanesLoading] = useState(false);
-
-  const fetchPlanes = async () => {
-    if (!activeHotelId) return;
-    setPlanesLoading(true);
-    const { data } = await supabase.from('mantenimiento_planes').select('*').eq('hotel_id', activeHotelId).order('nombre');
-    setPlanes(data || []);
-    setPlanesLoading(false);
-  };
-
-  useEffect(() => {
-    fetchPlanes();
-  }, [activeHotelId]);
-
-  const loading = usersLoading || zonesLoading || roomsLoading || assetsLoading || countersLoading || typesLoading || planesLoading;
+  const loading = usersLoading || zonesLoading || roomsLoading || assetsLoading || countersLoading || typesLoading;
   
   const fetchAll = () => {
     refetchUsers();
@@ -203,10 +187,12 @@ export default function Configuracion() {
 
           {activeTab === 'preventivos' && (
             <PreventiveManager 
-              planes={planes} 
-              onMessage={showMsg} 
-              onRefresh={fetchPlanes} 
               activeHotelId={activeHotelId}
+              onMessage={showMsg}
+              zones={zonas}
+              rooms={habitaciones}
+              assets={activos}
+              onRefresh={fetchAll}
             />
           )}
 

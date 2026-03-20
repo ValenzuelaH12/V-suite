@@ -127,3 +127,70 @@ export interface IncidentType {
   hotel_id?: string | null;
   created_at?: string;
 }
+
+// --- SISTEMA PREVENTIVO AVANZADO (TIPO TAKHYS) ---
+
+export type PreventiveFrequency = 'diaria' | 'semanal' | 'mensual' | 'trimestral' | 'semestral' | 'anual' | 'evento' | 'checkout';
+export type PreventiveTargetType = 'habitacion' | 'zona' | 'activo';
+export type PreventiveResponseType = 'ok_nok' | 'si_no' | 'numero' | 'texto';
+export type PreventiveCriticality = 'baja' | 'media' | 'alta';
+export type PreventiveRevisionStatus = 'pendiente' | 'en_proceso' | 'completada' | 'fallida';
+
+export interface PreventiveTemplate {
+  id: string;
+  hotel_id: string;
+  nombre: string;
+  descripcion?: string;
+  frecuencia: PreventiveFrequency;
+  tipo_objetivo: PreventiveTargetType;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PreventiveCategory {
+  id: string;
+  plantilla_id: string;
+  nombre: string;
+  orden: number;
+}
+
+export interface PreventiveItem {
+  id: string;
+  categoria_id: string;
+  texto: string;
+  tipo_respuesta: PreventiveResponseType;
+  criticidad: PreventiveCriticality;
+  orden: number;
+}
+
+export interface PreventiveAssignment {
+  id: string;
+  plantilla_id: string;
+  hotel_id: string;
+  entidad_tipo: 'habitacion' | 'zona' | 'activo' | 'tipo_habitacion';
+  entidad_id?: string;
+  entidad_valor?: string;
+}
+
+export interface PreventiveRevision {
+  id: string;
+  plantilla_id: string;
+  hotel_id: string;
+  entidad_tipo: string;
+  entidad_id: string;
+  ubicacion_nombre: string;
+  estado: PreventiveRevisionStatus;
+  ejecutado_por?: string;
+  completado_el?: string;
+  created_at: string;
+  plantilla?: PreventiveTemplate;
+}
+
+export interface PreventiveResult {
+  id: string;
+  revision_id: string;
+  item_id: string;
+  valor?: string;
+  comentario?: string;
+  foto_url?: string;
+}

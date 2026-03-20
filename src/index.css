@@ -530,6 +530,16 @@ input, textarea, select {
   color: white;
 }
 
+.select-custom option {
+  background: #0a0a1a;
+  color: #a0a0c0;
+  padding: 12px;
+}
+
+.select-custom {
+  cursor: pointer !important;
+}
+
 /* Badges */
 .badge {
   display: inline-flex;

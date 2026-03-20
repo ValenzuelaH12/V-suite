@@ -4,7 +4,8 @@ import {
   AlertTriangle, 
   MessageSquare, 
   Calendar,
-  Package
+  Package,
+  ClipboardCheck
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
@@ -14,7 +15,7 @@ export default function MobileNav() {
   const navItems = [
     { id: 'dashboard', name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { id: 'incidencias', name: 'Incidencias', path: '/incidencias', icon: AlertTriangle },
-    { id: 'planificacion', name: 'Agenda', path: '/planificacion', icon: Calendar },
+    { id: 'inspecciones', name: 'Inspecciones', path: '/inspecciones', icon: ClipboardCheck },
     { id: 'chat', name: 'Chat', path: '/chat', icon: MessageSquare },
     { id: 'inventario', name: 'Stock', path: '/inventario', icon: Package },
   ]

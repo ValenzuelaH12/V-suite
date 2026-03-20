@@ -83,7 +83,7 @@ export default function VInsights() {
       // 1. Fetch Incidents for Heatmap and MTTR
       let qInc = supabase
         .from('incidencias')
-        .select('id, title, location, status, created_at, resolved_at')
+        .select('id, title, location, status, created_at')
         .gte('created_at', startDateISO)
       if (activeHotelId) qInc = qInc.eq('hotel_id', activeHotelId)
       
