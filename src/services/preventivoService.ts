@@ -190,8 +190,20 @@ export const preventivoService = {
       for (const asig of (template.preventivo_asignaciones || [])) {
         if (!asig.entidad_id) continue;
 
-        // Comprobar si ya existe una para el periodo actual
-        const { data: existing } = await supabase
+        // Comprobar si ya existe alguna revisión histórica o pendiente
+        const { data: history } = await supabase
+          .from('preventivo_revisiones')
+          .select('id')
+          .eq('plantilla_id', template.id)
+          .eq('entidad_id', asig.entidad_id)
+          .limit(1);
+
+        const isNewAssignment = !history || history.length === 0;
+
+        if (!isNewAssignment && !shouldGenerate) continue;
+
+        // Comprobar si ya existe una para HOY (para evitar duplicados en el mismo día)
+        const { data: existingToday } = await supabase
           .from('preventivo_revisiones')
           .select('id')
           .eq('plantilla_id', template.id)
@@ -199,7 +211,7 @@ export const preventivoService = {
           .gte('created_at', todayISO)
           .maybeSingle();
 
-        if (!existing) {
+        if (!existingToday) {
           // Resolver nombre de ubicación
           let ubicacionNombre = 'Ubicación';
           if (asig.entidad_tipo === 'habitacion') {

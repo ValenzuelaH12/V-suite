@@ -1,5 +1,5 @@
--- INSTALACIÓN COMPLETA SISTEMA PREVENTIVO (V8)
--- Ejecuta este script si recibes el error "relation does not exist"
+-- INSTALACIÓN COMPLETA SISTEMA PREVENTIVO (V8) - CORREGIDO PARA MULTI-TENANT
+-- Ejecuta este script si recibes el error "new row violates row-level security policy" o "relation does not exist"
 
 -- 0. Habilitar extensión uuid-ossp si no está
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -80,46 +80,49 @@ ALTER TABLE preventivo_asignaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE preventivo_revisiones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE preventivo_resultados ENABLE ROW LEVEL SECURITY;
 
--- 8. Políticas RLS (Multi-Tenant)
+-- 8. Políticas RLS (Multi-Tenant usando la función estándar del proyecto)
+-- Eliminamos políticas anteriores
 DROP POLICY IF EXISTS "Full access to preventive templates by hotel_id" ON preventivo_plantillas;
-CREATE POLICY "Full access to preventive templates by hotel_id" ON preventivo_plantillas
-  FOR ALL USING (hotel_id = (auth.jwt() ->> 'hotel_id')::UUID);
-
 DROP POLICY IF EXISTS "Full access to preventive assignments by hotel_id" ON preventivo_asignaciones;
-CREATE POLICY "Full access to preventive assignments by hotel_id" ON preventivo_asignaciones
-  FOR ALL USING (hotel_id = (auth.jwt() ->> 'hotel_id')::UUID);
-
 DROP POLICY IF EXISTS "Full access to preventive categories by template parent" ON preventivo_categorias;
+DROP POLICY IF EXISTS "Full access to preventive items by category parent" ON preventivo_items;
+DROP POLICY IF EXISTS "Full access to preventive revisions by hotel_id" ON preventivo_revisiones;
+DROP POLICY IF EXISTS "Full access to preventive results by revision parent" ON preventivo_resultados;
+
+-- Nuevas políticas usando public.get_user_hotel_id()
+CREATE POLICY "Full access to preventive templates by hotel_id" ON preventivo_plantillas
+  FOR ALL USING (hotel_id = public.get_user_hotel_id()) WITH CHECK (hotel_id = public.get_user_hotel_id());
+
+CREATE POLICY "Full access to preventive assignments by hotel_id" ON preventivo_asignaciones
+  FOR ALL USING (hotel_id = public.get_user_hotel_id()) WITH CHECK (hotel_id = public.get_user_hotel_id());
+
 CREATE POLICY "Full access to preventive categories by template parent" ON preventivo_categorias
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM preventivo_plantillas p 
       WHERE p.id = plantilla_id 
-      AND p.hotel_id = (auth.jwt() ->> 'hotel_id')::UUID
+      AND p.hotel_id = public.get_user_hotel_id()
     )
   );
 
-DROP POLICY IF EXISTS "Full access to preventive items by category parent" ON preventivo_items;
 CREATE POLICY "Full access to preventive items by category parent" ON preventivo_items
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM preventivo_categorias c
       JOIN preventivo_plantillas p ON c.plantilla_id = p.id
       WHERE c.id = categoria_id
-      AND p.hotel_id = (auth.jwt() ->> 'hotel_id')::UUID
+      AND p.hotel_id = public.get_user_hotel_id()
     )
   );
 
-DROP POLICY IF EXISTS "Full access to preventive revisions by hotel_id" ON preventivo_revisiones;
 CREATE POLICY "Full access to preventive revisions by hotel_id" ON preventivo_revisiones
-  FOR ALL USING (hotel_id = (auth.jwt() ->> 'hotel_id')::UUID);
+  FOR ALL USING (hotel_id = public.get_user_hotel_id()) WITH CHECK (hotel_id = public.get_user_hotel_id());
 
-DROP POLICY IF EXISTS "Full access to preventive results by revision parent" ON preventivo_resultados;
 CREATE POLICY "Full access to preventive results by revision parent" ON preventivo_resultados
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM preventivo_revisiones r
       WHERE r.id = revision_id
-      AND r.hotel_id = (auth.jwt() ->> 'hotel_id')::UUID
+      AND r.hotel_id = public.get_user_hotel_id()
     )
   );
