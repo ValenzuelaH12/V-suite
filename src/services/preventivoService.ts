@@ -172,81 +172,109 @@ export const preventivoService = {
     }
 
     console.log(`Reconciliando ${templates?.length || 0} plantillas para hotel ${hotelId}`);
+    console.log('Datos de plantillas recuperados:', templates);
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayISO = todayStart.toISOString();
 
-    for (const template of templates) {
-      if (template.frecuencia === 'checkout' || template.frecuencia === 'evento') continue;
+    for (const template of (templates || [])) {
+      try {
+        if (template.frecuencia === 'checkout' || template.frecuencia === 'evento') continue;
 
-      // Lógica de validación por frecuencia
-      const now = new Date();
-      let shouldGenerate = false;
+        const now = new Date();
+        let shouldGenerate = false;
 
-      if (template.frecuencia === 'diaria') shouldGenerate = true;
-      else if (template.frecuencia === 'semanal' && now.getDay() === 1) shouldGenerate = true; // Lunes
-      else if (template.frecuencia === 'mensual' && now.getDate() === 1) shouldGenerate = true; // Día 1
-      else if (template.frecuencia === 'trimestral' && now.getDate() === 1 && (now.getMonth() % 3 === 0)) shouldGenerate = true;
-      else if (template.frecuencia === 'anual' && now.getDate() === 1 && now.getMonth() === 0) shouldGenerate = true;
+        if (template.frecuencia === 'diaria') shouldGenerate = true;
+        else if (template.frecuencia === 'semanal' && now.getDay() === 1) shouldGenerate = true;
+        else if (template.frecuencia === 'mensual' && now.getDate() === 1) shouldGenerate = true;
+        else if (template.frecuencia === 'trimestral' && now.getDate() === 1 && (now.getMonth() % 3 === 0)) shouldGenerate = true;
+        else if (template.frecuencia === 'anual' && now.getDate() === 1 && now.getMonth() === 0) shouldGenerate = true;
 
-      const asigs = template.preventivo_asignaciones || [];
-      console.log(`Procesando plantilla "${template.nombre}" con ${asigs.length} asignaciones. Hoy toca por frecuencia: ${shouldGenerate}`);
+        const asigs = template.preventivo_asignaciones || [];
+        console.log(`[Reconcile] Procesando "${template.nombre}" (${template.id}). Asignaciones: ${asigs.length}. Toca hoy: ${shouldGenerate}`);
 
-      for (const asig of asigs) {
-        if (!asig.entidad_id) continue;
+        for (const asig of asigs) {
+          if (!asig.entidad_id) continue;
 
-        // Comprobar si ya existe alguna revisión histórica o pendiente
-        const { data: history } = await supabase
-          .from('preventivo_revisiones')
-          .select('id')
-          .eq('plantilla_id', template.id)
-          .eq('entidad_id', asig.entidad_id)
-          .limit(1);
+          // Comprobar si ya existe alguna revisión histórica o pendiente
+          const { data: history } = await supabase
+            .from('preventivo_revisiones')
+            .select('id')
+            .eq('plantilla_id', template.id)
+            .eq('entidad_id', asig.entidad_id)
+            .limit(1);
 
-        const isNewAssignment = !history || history.length === 0;
+          const isNewAssignment = !history || history.length === 0;
 
-        if (!isNewAssignment && !shouldGenerate) continue;
+          if (!isNewAssignment && !shouldGenerate) continue;
 
-        // Comprobar si ya existe una para HOY (para evitar duplicados en el mismo día)
-        const { data: existingToday } = await supabase
-          .from('preventivo_revisiones')
-          .select('id')
-          .eq('plantilla_id', template.id)
-          .eq('entidad_id', asig.entidad_id)
-          .gte('created_at', todayISO)
-          .maybeSingle();
+          // Comprobar si ya existe una para HOY
+          const { data: existingToday } = await supabase
+            .from('preventivo_revisiones')
+            .select('id')
+            .eq('plantilla_id', template.id)
+            .eq('entidad_id', asig.entidad_id)
+            .gte('created_at', todayISO)
+            .maybeSingle();
 
-        if (!existingToday) {
-          // Resolver nombre de ubicación
-          let ubicacionNombre = 'Ubicación';
-          if (asig.entidad_tipo === 'habitacion') {
-            const { data } = await supabase.from('habitaciones').select('nombre').eq('id', asig.entidad_id).single();
-            ubicacionNombre = data?.nombre || 'Hab';
-          } else if (asig.entidad_tipo === 'zona') {
-            const { data } = await supabase.from('zonas').select('nombre').eq('id', asig.entidad_id).single();
-            ubicacionNombre = data?.nombre || 'Zona';
-          } else if (asig.entidad_tipo === 'activo') {
-            const { data } = await supabase.from('activos').select('nombre').eq('id', asig.entidad_id).single();
-            ubicacionNombre = data?.nombre || 'Activo';
-          }
+          if (!existingToday) {
+            let ubicacionNombre = 'Ubicación';
+            if (asig.entidad_tipo === 'habitacion') {
+              const { data } = await supabase.from('habitaciones').select('nombre').eq('id', asig.entidad_id).single();
+              ubicacionNombre = data?.nombre || 'Hab';
+            } else if (asig.entidad_tipo === 'zona') {
+              const { data } = await supabase.from('zonas').select('nombre').eq('id', asig.entidad_id).single();
+              ubicacionNombre = data?.nombre || 'Zona';
+            } else if (asig.entidad_tipo === 'activo') {
+              const { data } = await supabase.from('activos').select('nombre').eq('id', asig.entidad_id).single();
+              ubicacionNombre = data?.nombre || 'Activo';
+            }
 
-          const { error: insError } = await supabase.from('preventivo_revisiones').insert([{
-            hotel_id: hotelId,
-            plantilla_id: template.id,
-            entidad_tipo: asig.entidad_tipo,
-            entidad_id: asig.entidad_id,
-            ubicacion_nombre: ubicacionNombre,
-            estado: 'pendiente'
-          }]);
+            const { error: insError } = await supabase.from('preventivo_revisiones').insert([{
+              hotel_id: hotelId,
+              plantilla_id: template.id,
+              entidad_tipo: asig.entidad_tipo,
+              entidad_id: asig.entidad_id,
+              ubicacion_nombre: ubicacionNombre,
+              estado: 'pendiente'
+            }]);
 
-          if (insError) {
-            console.error(`Error creando revisión para ${ubicacionNombre}:`, insError);
-          } else {
-            console.log(`Revisión creada con éxito para ${ubicacionNombre}`);
+            if (insError) {
+              console.error(`Error creando revisión para ${ubicacionNombre}:`, insError);
+            } else {
+              console.log(`Revisión creada con éxito para ${ubicacionNombre}`);
+            }
           }
         }
+      } catch (err) {
+        console.error(`Error procesando plantilla "${template?.nombre}":`, err);
       }
     }
-  }
+  },
+
+  // --- EJECUCIÓN DE REVISIONES ---
+
+  async getPendingRevisions(hotelId: string): Promise<PreventiveRevision[]> {
+    console.log(`Buscando revisiones pendientes para hotel: ${hotelId}`);
+    const { data, error } = await supabase
+      .from('preventivo_revisiones')
+      .select(`
+        *,
+        plantilla:plantilla_id (
+          nombre,
+          frecuencia
+        )
+      `)
+      .eq('hotel_id', hotelId)
+      .eq('estado', 'pendiente')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching pending revisions:', error);
+      throw error;
+    }
+    console.log(`Se han encontrado ${data?.length || 0} revisiones pendientes`);
+    return data || [];
+  },
 };
