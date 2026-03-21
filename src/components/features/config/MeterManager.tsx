@@ -6,6 +6,7 @@ import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Modal } from '../../ui/Modal';
 import { Badge } from '../../ui/Badge';
+import { auditService } from '../../../services/auditService';
 
 interface MeterManagerProps {
   counters: Counter[];
@@ -40,7 +41,16 @@ export const MeterManager: React.FC<MeterManagerProps> = ({
   const handleAddMeter = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await configService.create('contadores', { ...newMeter, hotel_id: activeHotelId });
+      const data = await configService.create('contadores', { ...newMeter, hotel_id: activeHotelId });
+      
+      await auditService.log({
+        accion: 'CREACION',
+        entidad: 'SUMINISTRO',
+        descripcion: `Nuevo contador registrado: ${newMeter.nombre} (${newMeter.tipo})`,
+        detalles: { id: data.id, ...newMeter },
+        hotel_id: activeHotelId || undefined
+      });
+
       onMessage({ type: 'success', text: 'Contador creado exitosamente.' });
       setIsAddingMeter(false);
       setNewMeter({ nombre: '', tipo: 'luz', hotel_id: activeHotelId || '' });
@@ -58,6 +68,15 @@ export const MeterManager: React.FC<MeterManagerProps> = ({
         nombre: editingMeter.nombre,
         tipo: editingMeter.tipo
       });
+
+      await auditService.log({
+        accion: 'ACTUALIZACION',
+        entidad: 'SUMINISTRO',
+        descripcion: `Actualizado contador: ${editingMeter.nombre}`,
+        detalles: { id: editingMeter.id, nombre: editingMeter.nombre, tipo: editingMeter.tipo },
+        hotel_id: activeHotelId || undefined
+      });
+
       onMessage({ type: 'success', text: 'Contador actualizado.' });
       setIsEditingMeter(false);
       onRefresh();
@@ -66,15 +85,35 @@ export const MeterManager: React.FC<MeterManagerProps> = ({
     }
   };
 
-  const handleDeleteMeter = async (id: string, name: string) => {
-    if (!confirm(`¿Estás seguro de eliminar el contador ${name}?`)) return;
+  const [meterToDelete, setMeterToDelete] = useState<Counter | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!meterToDelete) return;
+    setIsDeleting(true);
     try {
-      await configService.delete('contadores', id);
+      await configService.delete('contadores', meterToDelete.id);
+      
+      await auditService.log({
+        accion: 'ELIMINACION',
+        entidad: 'SUMINISTRO',
+        descripcion: `Eliminado contador: ${meterToDelete.nombre}`,
+        detalles: { id: meterToDelete.id, nombre: meterToDelete.nombre },
+        hotel_id: activeHotelId || undefined
+      });
+
       onMessage({ type: 'success', text: 'Contador eliminado.' });
       onRefresh();
+      setMeterToDelete(null);
     } catch (error: any) {
       onMessage({ type: 'error', text: `Error al eliminar: ${error.message}` });
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  const handleDeleteMeter = async (meter: Counter) => {
+    setMeterToDelete(meter);
   };
 
   return (
@@ -127,7 +166,7 @@ export const MeterManager: React.FC<MeterManagerProps> = ({
                       </button>
                       <button 
                         className="p-2 rounded-lg bg-white/5 text-muted hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-white/5"
-                        onClick={() => handleDeleteMeter(c.id, c.nombre)}
+                        onClick={() => handleDeleteMeter(c)}
                         title="Eliminar Registro"
                       >
                         <Trash2 size={14} />
@@ -206,6 +245,31 @@ export const MeterManager: React.FC<MeterManagerProps> = ({
             </div>
           </form>
         )}
+      </Modal>
+
+      {/* Deletion Confirmation Modal */}
+      <Modal
+        isOpen={!!meterToDelete}
+        onClose={() => setMeterToDelete(null)}
+        title="Confirmar Borrado de Contador"
+        maxWidth="450px"
+        footer={
+          <div className="flex gap-md w-full">
+            <Button variant="ghost" className="flex-1" onClick={() => setMeterToDelete(null)}>Conservar</Button>
+            <Button variant="danger" className="flex-1 bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-500/20" onClick={confirmDelete} loading={isDeleting}>Confirmar Baja</Button>
+          </div>
+        }
+      >
+        <div className="text-center py-6">
+          <div className="w-16 h-16 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-md border border-rose-500/20">
+            <Trash2 size={32} />
+          </div>
+          <h4 className="text-xl font-bold text-white mb-2">¿Eliminar Contador de Suministros?</h4>
+          <p className="text-xs text-muted leading-relaxed uppercase tracking-widest font-black">
+            Estás a punto de eliminar el contador: <span className="text-rose-400">{meterToDelete?.nombre}</span>.<br/>
+            Se perderán todos los datos históricos de lectura vinculados a este terminal.
+          </p>
+        </div>
       </Modal>
     </div>
   );

@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Plus, Filter, Search, MoreVertical, MapPin, Clock, X, CheckCircle, Image as ImageIcon, Video, Paperclip, MessageSquare, History, AlertCircle, RefreshCw, Download, FileText, FileSpreadsheet, Trash2, Check, Sparkles, ImageIcon as LucideImageIcon } from 'lucide-react'
+import { Plus, Filter, Search, MoreVertical, MapPin, Clock, X, CheckCircle, Image as ImageIcon, Video, Paperclip, MessageSquare, History, AlertCircle, RefreshCw, Download, FileText, FileSpreadsheet, Trash2, Check, Sparkles, ImageIcon as LucideImageIcon, List, Columns } from 'lucide-react'
 import { aiService, AIAnalysisResult } from '../services/aiService'
+import { IncidentKanban } from '../components/features/inspections/IncidentKanban'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
@@ -18,6 +19,7 @@ export default function Incidencias() {
   const navigate = useNavigate()
   const toast = useToast()
   const [activeTab, setActiveTab] = useState('activas')
+  const [viewMode, setViewMode] = useState<'list'|'board'>('board')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const location = useLocation()
   const [newIncident, setNewIncident] = useState({ title: '', location: '', priority: 'medium', room: '', descripcion: '', media_urls: [], activo_id: null })
@@ -410,7 +412,9 @@ export default function Incidencias() {
             onClick={() => setActiveTab('activas')}
           >
             Activas 
-            <span className="badge badge-accent ml-sm">3</span>
+            <span className="badge badge-accent ml-sm">
+              {formattedIncidents.filter(inc => inc.status !== 'resuelto').length}
+            </span>
           </button>
           <button 
             className={`tab ${activeTab === 'resueltas' ? 'active' : ''}`}
@@ -435,6 +439,21 @@ export default function Incidencias() {
           <button className="btn btn-secondary btn-icon">
             <Filter size={18} />
           </button>
+
+          <div className="flex bg-white/5 rounded-lg p-1 mr-2 border border-white/10 hidden md:flex">
+            <button 
+              onClick={() => setViewMode('list')} 
+              className={`p-1.5 flex items-center gap-xs text-xs font-bold rounded-md transition-colors ${viewMode === 'list' ? 'bg-white/10 text-white shadow-sm' : 'text-muted hover:text-white'}`}
+            >
+              <List size={14} /> Lista
+            </button>
+            <button 
+              onClick={() => setViewMode('board')} 
+              className={`p-1.5 flex items-center gap-xs text-xs font-bold rounded-md transition-colors ${viewMode === 'board' ? 'bg-accent/20 text-accent ring-1 ring-accent/50 shadow-sm' : 'text-muted hover:text-white'}`}
+            >
+              <Columns size={14} /> Tablero
+            </button>
+          </div>
 
           <div className="relative">
             <button 
@@ -467,7 +486,19 @@ export default function Incidencias() {
         </div>
       </div>
 
-      <div className="incidencias-grid mt-lg">
+      {viewMode === 'board' ? (
+        <div className="mt-lg animate-fade-in">
+          <IncidentKanban 
+            incidents={filteredIncidents} 
+            onUpdateStatus={handleUpdateStatus} 
+            onClickIncident={(inc: any) => {
+              setSelectedIncident(inc)
+              setIsDetailPanelOpen(true)
+            }}
+          />
+        </div>
+      ) : (
+        <div className="incidencias-grid mt-lg animate-fade-in">
         {filteredIncidents.map(inc => (
           <div key={inc.id} className="incident-card glass-card">
             <div className="card-top">
@@ -545,6 +576,7 @@ export default function Incidencias() {
           </div>
         ))}
       </div>
+      )}
 
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>

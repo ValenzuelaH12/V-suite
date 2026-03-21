@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { 
   Users, Hotel, Settings, Package, QrCode, Smartphone, Activity, Calendar, 
-  Layers, MapPin, Check, X, Bell, Building2, ShieldCheck
+  Layers, MapPin, Check, X, Bell, Building2, ShieldCheck, History
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +15,7 @@ import { PreventiveManager } from '../components/features/config/PreventiveManag
 import { SettingsManager } from '../components/features/config/SettingsManager';
 import { HotelManager } from '../components/features/config/HotelManager';
 import { IncidentTypeManager } from '../components/features/config/IncidentTypeManager';
+import { AuditLogViewer } from '../components/features/config/AuditLogViewer';
 import { 
   useUsers, useZones, useRooms, useAssets, useCounters, useIncidentTypes 
 } from '../hooks/useConfig';
@@ -29,6 +30,7 @@ const TABS = [
   { id: 'contadores', name: 'Contadores', icon: Activity },
   { id: 'preventivos', name: 'Preventivos', icon: ShieldCheck },
   { id: 'v-nexus', name: 'V-Nexus', icon: Smartphone },
+  { id: 'auditoria', name: 'Auditoría', icon: History },
   { id: 'ajustes', name: 'Ajustes', icon: Settings },
 ];
 
@@ -40,7 +42,7 @@ export default function Configuracion() {
   // Sincronizar pestaña activa con parámetro de URL
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && TABS.some(t => t.id === tab)) {
+    if (tab && (TABS.some(t => t.id === tab) || tab === 'auditoria' || tab === 'hoteles')) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -218,6 +220,10 @@ export default function Configuracion() {
               zones={zonas} 
               activeHotelId={activeHotelId}
             />
+          )}
+
+          {activeTab === 'auditoria' && (
+            <AuditLogViewer />
           )}
 
           {activeTab === 'ajustes' && (

@@ -28,6 +28,10 @@ export default defineConfig({
           }
         ]
       },
+      devOptions: {
+        enabled: true,
+        type: 'module',
+      },
       manifest: {
         name: 'V-Suite',
         short_name: 'V-Suite',

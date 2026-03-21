@@ -6,7 +6,36 @@ import { Incident } from '../types';
 export const useIncidents = (hotelId: string | null) => {
   return useQuery<Incident[]>({
     queryKey: ['incidents', hotelId],
-    queryFn: () => incidentService.getAll(hotelId),
+    queryFn: async () => {
+      try {
+        const data = await incidentService.getAll(hotelId);
+        // Cachear datos frescos en Dexie
+        await dbService.putBatch('incidencias', data);
+        return data;
+      } catch (err: any) {
+        // Fallback a Dexie si estamos offline o Supabase falla
+        console.warn('[useIncidents] Cargando desde Caché Offline', err);
+        const cached = await dbService.getAll('incidencias');
+        
+        // Mezclar con la cola de sincronización pendiente
+        const queue = await dbService.getSyncQueue();
+        const pending = queue.filter(q => q.table === 'incidencias');
+        
+        return pending.reduce((acc, curr) => {
+           if (curr.action === 'insert') {
+             return [{ ...curr.data, id: curr.data.id || `temp_${curr.timestamp}` }, ...acc];
+           }
+           if (curr.action === 'update') {
+             const idx = acc.findIndex(i => i.id === curr.data.id);
+             if (idx >= 0) acc[idx] = { ...acc[idx], ...curr.data };
+           }
+           if (curr.action === 'delete') {
+             return acc.filter(i => i.id !== curr.data.id);
+           }
+           return acc;
+        }, [...cached]);
+      }
+    },
     enabled: !!hotelId,
   });
 };

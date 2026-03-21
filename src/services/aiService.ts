@@ -22,7 +22,6 @@ export const aiService = {
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-      // Convertir la URL de Supabase a base64 para Gemini
       const response = await fetch(imageUrl);
       if (!response.ok) throw new Error(`Fallo al descargar la imagen: ${response.statusText}`);
       
@@ -59,7 +58,6 @@ export const aiService = {
       ]);
 
       const text = result.response.text();
-      // Limpiar posibles bloques de código de la respuesta
       const jsonStr = text.replace(/```json|```/g, "").trim();
       return JSON.parse(jsonStr) as AIAnalysisResult;
     } catch (error: any) {
@@ -84,8 +82,34 @@ export const aiService = {
 
       const result = await model.generateContent(prompt);
       const response = result.response.text();
-      return response.includes("OK") ? null : response;
+      return response.trim().toUpperCase().includes("OK") ? null : response;
     } catch (error) {
+      return null;
+    }
+  },
+
+  /**
+   * Analiza patrones de fallos en zonas para detectar problemas sistémicos.
+   */
+  async analyzeIncidentTrends(incidents: any[]): Promise<string | null> {
+    if (!API_KEY || incidents.length < 5) return null;
+
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const prompt = `
+        Como experto en mantenimiento hotelero y analista de datos, revisa estos reportes de incidencias recientes:
+        ${JSON.stringify(incidents.map(i => ({ t: i.title, l: i.location, d: i.description })))}
+
+        ¿Notas algún patrón preocupante? (ej: "La zona X tiene muchos fallos de aire acondicionado", "Hay reportes repetidos de fugas en la planta 2").
+        Si detectas algo crítico que requiera atención inmediata de Gerencia, respóndeme con un mensaje de alerta corto y directo. 
+        Si no hay patrones claros, responde estrictamente "OK".
+      `;
+
+      const result = await model.generateContent(prompt);
+      const response = result.response.text();
+      return response.trim().toUpperCase() === "OK" ? null : response;
+    } catch (error) {
+      console.error("Error en análisis de tendencias AI:", error);
       return null;
     }
   }

@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { QRScannerModal } from '../ui/qr/QRScannerModal'
 import { 
   X,
   LayoutDashboard, 
@@ -17,7 +18,8 @@ import {
   Moon,
   ShieldCheck,
   ClipboardCheck,
-  CalendarDays
+  CalendarDays,
+  Scan
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
@@ -25,6 +27,7 @@ import { useAuth } from '../../context/AuthContext'
 export default function Sidebar({ isOpen, closeSidebar }) {
   const { signOut, profile, availableHotels } = useAuth()
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark')
+  const [isQRScannerOpen, setIsQRScannerOpen] = useState(false)
 
   useEffect(() => {
     if (theme === 'light') {
@@ -50,7 +53,6 @@ export default function Sidebar({ isOpen, closeSidebar }) {
     { id: 'calendario', name: 'Calendario', path: '/calendario', icon: CalendarDays },
     { id: 'inventario', name: 'Inventario', path: '/inventario', icon: Package },
     { id: 'lecturas', name: 'Lecturas', path: '/lecturas', icon: Activity },
-    { id: 'planificacion', name: 'Preventivos', path: '/configuracion?tab=preventivos', icon: Calendar },
     { id: 'chat', name: 'Chat', path: '/chat', icon: MessageSquare },
     { id: 'insights', name: 'V-Insights', path: '/insights', icon: BarChart3 },
     { id: 'cadenas', name: 'Control de Cadena', path: '/superadmin', icon: Building2, hidden: availableHotels.length <= 1 && profile?.rol !== 'super_admin' },
@@ -97,7 +99,24 @@ export default function Sidebar({ isOpen, closeSidebar }) {
             )
           })}
         </ul>
+        
+        {/* Quick Access QR Scanner Section */}
+        <div className="px-lg py-md mt-md border-t border-white/5 relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-accent/20 to-blue-500/20 rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+          <button 
+            onClick={() => setIsQRScannerOpen(true)}
+            className="relative btn btn-accent w-full flex items-center justify-center gap-2 py-3 shadow-[0_4px_20px_rgba(var(--color-accent),0.4)] hover:scale-[1.02] active:scale-95 transition-all animate-pulse-subtle"
+          >
+            <Scan size={18} className="group-hover:rotate-12 transition-transform" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Escáner V-Scan QR</span>
+          </button>
+        </div>
       </nav>
+
+      <QRScannerModal 
+        isOpen={isQRScannerOpen}
+        onClose={() => setIsQRScannerOpen(false)}
+      />
 
       <div className="sidebar-footer border-t">
         <div className="user-info">

@@ -15,6 +15,7 @@ import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { preventivoService } from '../../../services/preventivoService';
 import { incidentService } from '../../../services/incidentService';
+import { SignaturePad } from '../../ui/SignaturePad';
 import { PreventiveRevision, PreventiveResult } from '../../../types';
 
 interface Props {
@@ -29,6 +30,8 @@ export const InspeccionChecklist = ({ revision, onComplete, onCancel }: Props) =
   const [activeCategoryIdx, setActiveCategoryIdx] = useState(0);
   const [results, setResults] = useState<Record<string, Partial<PreventiveResult>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
 
   useEffect(() => {
     const loadDetail = async () => {
@@ -64,13 +67,13 @@ export const InspeccionChecklist = ({ revision, onComplete, onCancel }: Props) =
 
   const allItemsAnswered = items.every((item: any) => !!results[item.id]?.valor);
 
-  const handleSubmit = async () => {
+  const handleSubmitFinal = async (signatureData?: string) => {
     setIsSubmitting(true);
     try {
       const resultsArray = Object.values(results);
       
-      // 1. Guardar resultados y finalizar revisión
-      const { hasFailures } = await preventivoService.submitResults(revision.id, resultsArray as any);
+      // 1. Guardar resultados y finalizar la revisión básica
+      await preventivoService.submitResults(revision.id, resultsArray as any);
 
       // 2. Motor de Reglas: Crear incidencias para cada NOK
       for (const res of resultsArray) {
@@ -99,6 +102,7 @@ export const InspeccionChecklist = ({ revision, onComplete, onCancel }: Props) =
       alert('Error al guardar los resultados.');
     } finally {
       setIsSubmitting(false);
+      setShowSignatureModal(false);
     }
   };
 
@@ -111,6 +115,16 @@ export const InspeccionChecklist = ({ revision, onComplete, onCancel }: Props) =
 
   return (
     <div className="flex flex-col h-full bg-background animate-fade-in sm:max-w-md mx-auto relative overflow-hidden">
+      {showSignatureModal && (
+        <SignaturePad 
+          onSave={(data) => {
+            setSignature(data);
+            handleSubmitFinal(data);
+          }}
+          onCancel={() => setShowSignatureModal(false)}
+          title={`Validación: ${revision.ubicacion_nombre}`}
+        />
+      )}
       {/* Header */}
       <div className="p-lg flex justify-between items-center bg-white/5 border-b border-white/5">
         <div>
@@ -216,7 +230,7 @@ export const InspeccionChecklist = ({ revision, onComplete, onCancel }: Props) =
           <Button 
             className="flex-1 btn-xl shadow-xl shadow-accent/20" 
             disabled={!allItemsAnswered || isSubmitting}
-            onClick={handleSubmit}
+            onClick={() => setShowSignatureModal(true)}
           >
             {isSubmitting ? (
               <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />

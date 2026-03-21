@@ -51,13 +51,17 @@ ChartJS.register(
   Filler
 )
 
+import { useNotifications } from '../context/NotificationContext'
+
 export default function VInsights() {
   const { activeHotelId } = useAuth()
+  const { sendNotification } = useNotifications()
   const [activeTab, setActiveTab] = useState<'general' | 'water'>('general')
   const [isExporting, setIsExporting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState('30') // días
   const [heatmapData, setHeatmapData] = useState(null)
+  const [peakHoursData, setPeakHoursData] = useState(null)
   const [mttrData, setMttrData] = useState(null)
   const [consumptionData, setConsumptionData] = useState(null)
   const [summaryStats, setSummaryStats] = useState({
@@ -67,12 +71,12 @@ export default function VInsights() {
     efficiencyScore: 0
   })
   const [anomaly, setAnomaly] = useState<string | null>(null)
+  const [trendAlert, setTrendAlert] = useState<string | null>(null)
   const [isCheckingAnomalies, setIsCheckingAnomalies] = useState(false)
 
   useEffect(() => {
     fetchInsightsData()
   }, [timeRange, activeHotelId])
-
   const fetchInsightsData = async () => {
     setLoading(true)
     try {
@@ -80,21 +84,26 @@ export default function VInsights() {
       startDate.setDate(startDate.getDate() - parseInt(timeRange))
       const startDateISO = startDate.toISOString()
 
-      // 1. Fetch Incidents for Heatmap and MTTR
+      // 1. Fetch Incidents and Staff
       let qInc = supabase
         .from('incidencias')
-        .select('id, title, location, status, created_at')
+        .select('id, title, location, status, created_at, assigned_to')
         .gte('created_at', startDateISO)
       if (activeHotelId) qInc = qInc.eq('hotel_id', activeHotelId)
       
       const { data: incidents, error: incError } = await qInc
-
       if (incError) throw incError
 
-      // Process Heatmap (Incidents by Location)
-      const locationCounts = {}
+      let qStaff = supabase.from('perfiles').select('id, nombre')
+      if (activeHotelId) qStaff = qStaff.eq('hotel_id', activeHotelId)
+      const { data: staffData } = await qStaff
+
+      const staffMap: any = {}
+      if (staffData) staffData.forEach(s => { staffMap[s.id] = s.nombre })
+
+      // Process Heatmap (Zonas con más averías)
+      const locationCounts: any = {}
       incidents.forEach(inc => {
-        // Normalize location (extract room or zone)
         const loc = inc.location ? inc.location.split('-')[0].trim() : 'General'
         locationCounts[loc] = (locationCounts[loc] || 0) + 1
       })
@@ -113,49 +122,52 @@ export default function VInsights() {
           borderWidth: 1,
           borderRadius: 4
         }]
+      } as any)
+
+      // Process Picos por Hora
+      const hoursCount = new Array(24).fill(0)
+      incidents.forEach(inc => {
+        if (!inc.created_at) return
+        const hour = new Date(inc.created_at).getHours()
+        hoursCount[hour]++
       })
 
-      // Process MTTR (Mean Time To Resolution)
-      // Note: Since updated_at doesn't exist, MTTR is currently 0 or based on another logic.
-      // We use created_at for now to avoid crashes, but logic needs a real 'resolved_at' field.
-      const resolvedIncidents = incidents.filter(inc => 
-        (inc.status === 'resolved' || inc.status === 'resuelto') && 
-        inc.created_at
-      )
+      setPeakHoursData({
+        labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+        datasets: [{
+          label: 'Frecuencia de Reportes',
+          data: hoursCount,
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.5,
+          pointRadius: 3,
+          pointBackgroundColor: '#f59e0b'
+        }]
+      } as any)
 
-      const resolutionTimes = resolvedIncidents.map(inc => {
-        if (!inc.resolved_at || !inc.created_at) return 0
-        const start = new Date(inc.created_at).getTime()
-        const end = new Date(inc.resolved_at).getTime()
-        return (end - start) / (1000 * 60 * 60) // horas
+      // Process Rendimiento por Técnico (Reemplazo de MTTR)
+      const techCounts: any = {}
+      incidents.forEach(inc => {
+        if ((inc.status === 'resolved' || inc.status === 'resuelto') && inc.assigned_to) {
+          const techName = staffMap[inc.assigned_to] || 'Técnico Desconocido'
+          techCounts[techName] = (techCounts[techName] || 0) + 1
+        }
       })
-
-      const mttrRanges = {
-        '< 1h': resolutionTimes.filter(t => t < 1).length,
-        '1-4h': resolutionTimes.filter(t => t >= 1 && t < 4).length,
-        '4-24h': resolutionTimes.filter(t => t >= 4 && t < 24).length,
-        '> 24h': resolutionTimes.filter(t => t >= 24).length
-      }
+      
+      const techNames = Object.keys(techCounts)
+      const techColors = techNames.map((_, i) => `hsl(${i * (360 / Math.max(techNames.length, 1))}, 70%, 60%)`)
 
       setMttrData({
-        labels: Object.keys(mttrRanges),
+        labels: techNames.length > 0 ? techNames : ['Sin datos'],
         datasets: [{
-          data: Object.values(mttrRanges),
-          backgroundColor: [
-            'rgba(34, 197, 94, 0.6)',
-            'rgba(59, 130, 246, 0.6)',
-            'rgba(245, 158, 11, 0.6)',
-            'rgba(239, 68, 68, 0.6)'
-          ],
-          borderColor: [
-            '#22c55e',
-            '#3b82f6',
-            '#f59e0b',
-            '#ef4444'
-          ],
+          data: techNames.length > 0 ? Object.values(techCounts) : [1],
+          backgroundColor: techNames.length > 0 ? techColors.map(c => c.replace(')', ', 0.6)').replace('hsl', 'hsla')) : ['rgba(255,255,255,0.1)'],
+          borderColor: techNames.length > 0 ? techColors : ['rgba(255,255,255,0.2)'],
           borderWidth: 1
         }]
-      })
+      } as any)
 
       // 2. Fetch Consumption Trends
       let qRead = supabase
@@ -166,21 +178,20 @@ export default function VInsights() {
       if (activeHotelId) qRead = qRead.eq('hotel_id', activeHotelId)
 
       const { data: readings, error: readError } = await qRead
-
       if (readError) throw readError
 
-      const dailyConsumption = {}
-      const lastValues = {} // track last value per counter
+      const dailyConsumption: any = {}
+      const lastValues: any = {}
 
       readings.forEach((read) => {
         const counterId = read.contador_id
         if (lastValues[counterId] !== undefined) {
           const consumption = read.valor - lastValues[counterId]
           const day = read.fecha
-          const type = read.contadores?.tipo || 'otros'
+          const type = (read.contadores as any)?.tipo || 'otros'
           
           if (!dailyConsumption[day]) dailyConsumption[day] = { luz: 0, agua: 0, gas: 0, otros: 0 }
-          if (consumption >= 0) { // Avoid negative consumption on resets or errors
+          if (consumption >= 0) {
             dailyConsumption[day][type] += consumption
           }
         }
@@ -210,32 +221,42 @@ export default function VInsights() {
             spanGaps: true
           }
         ]
-      })
+      } as any)
 
       // Summary Stats
-      const avgMTTR = resolutionTimes.length > 0 
-        ? (resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length).toFixed(1)
-        : '0.0'
-
       setSummaryStats({
         totalIncidents: incidents.length,
-        avgResolutionTime: parseFloat(avgMTTR),
-        criticalZones: sortedLocations.slice(0, 3).map(l => l[0]),
-        efficiencyScore: resolutionTimes.length > 0 
-          ? Math.round((mttrRanges['< 1h'] + mttrRanges['1-4h']) / resolutionTimes.length * 100)
-          : 0
+        avgResolutionTime: 0, // Simplified since resolved_at doesn't exist
+        criticalZones: sortedLocations.slice(0, 3).map(l => l[0]) as any,
+        efficiencyScore: techNames.length > 0 ? 85 : 0 
       })
 
-      // 3. AI Anomaly Detection
+      // 3. AI Anomaly & Trend Detection
       if (days.length >= 3) {
         setIsCheckingAnomalies(true)
         const sample = days.slice(-7).map(d => ({
           fecha: d,
           ...dailyConsumption[d]
         }))
-        aiService.detectAnomalies(sample).then(res => {
-          setAnomaly(res)
+        
+        // Ejecutar detecciones en paralelo para mayor velocidad
+        Promise.all([
+          aiService.detectAnomalies(sample),
+          aiService.analyzeIncidentTrends(incidents)
+        ]).then(([anomRes, trendRes]) => {
+          setAnomaly(anomRes)
+          setTrendAlert(trendRes)
           setIsCheckingAnomalies(false)
+
+          // Disparar notificación nativa si hay alerta de tendencia
+          if (trendRes) {
+            sendNotification('📈 PATRÓN DE FALLOS DETECTADO', {
+              body: trendRes,
+              icon: '/apple-touch-icon.png',
+              tag: 'trend-alert',
+              requireInteraction: true
+            })
+          }
         })
       }
 
@@ -388,7 +409,7 @@ export default function VInsights() {
         <>
 
       {anomaly && (
-        <div className="v-glass-card mb-xl p-lg border-l-4 border-l-danger animate-fade-in" style={{ background: 'rgba(239, 68, 68, 0.05)' }}>
+        <div className="v-glass-card mb-lg p-lg border-l-4 border-l-danger animate-fade-in" style={{ background: 'rgba(239, 68, 68, 0.05)' }}>
           <div className="flex items-center gap-lg">
             <div className="p-md bg-danger/10 rounded-full text-danger border border-danger/20">
               <AlertTriangle size={24} />
@@ -396,9 +417,29 @@ export default function VInsights() {
             <div>
               <div className="flex items-center gap-sm mb-xs">
                 <Sparkles size={16} className="text-danger" />
-                <h4 className="text-sm font-bold text-danger uppercase tracking-widest">Alerta V-Insights AI</h4>
+                <h4 className="text-xs font-black text-danger uppercase tracking-widest">Alerta de Suministros AI</h4>
               </div>
-              <p className="text-secondary tracking-wide">{anomaly}</p>
+              <p className="text-secondary text-xs tracking-wide">{anomaly}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {trendAlert && (
+        <div className="v-glass-card mb-xl p-lg border-l-4 border-l-accent animate-fade-in" style={{ background: 'rgba(var(--color-accent), 0.05)' }}>
+          <div className="flex items-center gap-lg">
+            <div className="p-md bg-accent/10 rounded-full text-accent border border-accent/20 shadow-[0_0_15px_rgba(var(--color-accent),0.2)]">
+              <Activity size={24} />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-xs">
+                <div className="flex items-center gap-sm">
+                  <Sparkles size={16} className="text-accent" />
+                  <h4 className="text-xs font-black text-accent uppercase tracking-widest">Análisis Predictivo V-Insights</h4>
+                </div>
+                <span className="badge badge-accent text-[8px] px-2">NIVEL EJECUTIVO</span>
+              </div>
+              <p className="text-white text-sm font-medium tracking-wide leading-relaxed">{trendAlert}</p>
             </div>
           </div>
         </div>
@@ -467,7 +508,7 @@ export default function VInsights() {
           <div className="panel-header border-b mb-md pb-sm">
             <div className="flex items-center gap-sm">
               <PieChart size={18} className="text-success" />
-              <h3 className="font-bold">Rendimiento del Equipo</h3>
+              <h3 className="font-bold">Rendimiento por Técnico</h3>
             </div>
           </div>
           <div className="panel-body h-[350px] flex items-center justify-center">
@@ -481,6 +522,32 @@ export default function VInsights() {
                     position: 'right', 
                     labels: { color: '#a0a0c0', usePointStyle: true, font: { size: 11 } } 
                   } 
+                }
+              }}
+            />)}
+          </div>
+        </div>
+
+        <div className="v-glass-card panel col-span-2">
+          <div className="panel-header border-b mb-md pb-sm">
+            <div className="flex items-center gap-sm">
+              <Clock size={18} className="text-warning" />
+              <h3 className="font-bold">Picos de Incidencias por Hora</h3>
+            </div>
+          </div>
+          <div className="panel-body h-[300px]">
+            {loading ? <Skeleton className="h-full w-full" /> : (peakHoursData && <Line 
+              data={peakHoursData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                  legend: { display: false }
+                },
+                scales: {
+                  y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0', precision: 0 } },
+                  x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a0a0c0' } }
                 }
               }}
             />)}

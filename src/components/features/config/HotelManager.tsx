@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Plus, Search, Edit2, Power, Activity, Users, AlertTriangle, Check, X } from 'lucide-react';
+import { Building2, Plus, Edit2, Power, Activity, Users, AlertTriangle, Trash2 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hotelService } from '../../../services/hotelService';
 import { Hotel } from '../../../types';
-import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
+import { Modal } from '../../ui/Modal';
+import { auditService } from '../../../services/auditService';
 
 export const HotelManager: React.FC = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
+  const [hotelToDelete, setHotelToDelete] = useState<Hotel | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({
     nombre: '',
     direccion: '',
@@ -27,7 +30,6 @@ export const HotelManager: React.FC = () => {
       const data = await hotelService.getAll();
       setHotels(data);
       
-      // Fetch stats for each hotel
       const statsMap: any = {};
       await Promise.all(data.map(async (h) => {
         const s = await hotelService.getStats(h.id);
@@ -52,8 +54,20 @@ export const HotelManager: React.FC = () => {
     try {
       if (editingHotel) {
         await hotelService.update(editingHotel.id, formData);
+        await auditService.log({
+          accion: 'ACTUALIZACION',
+          entidad: 'HOTEL',
+          descripcion: `Actualizada información del hotel: ${formData.nombre}`,
+          detalles: { hotelId: editingHotel.id, ...formData }
+        });
       } else {
-        await hotelService.create(formData);
+        const newHotel = await hotelService.create(formData);
+        await auditService.log({
+          accion: 'CREACION',
+          entidad: 'HOTEL',
+          descripcion: `Registrado nuevo hotel en la red: ${formData.nombre}`,
+          detalles: { hotelId: newHotel.id, ...formData }
+        });
       }
       setIsModalOpen(false);
       setEditingHotel(null);
@@ -75,6 +89,29 @@ export const HotelManager: React.FC = () => {
       estado: hotel.estado
     });
     setIsModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!hotelToDelete) return;
+    setIsDeleting(true);
+    try {
+      await hotelService.delete(hotelToDelete.id);
+      
+      await auditService.log({
+        accion: 'ELIMINACION',
+        entidad: 'HOTEL',
+        descripcion: `Eliminado hotel de la red: ${hotelToDelete.nombre}`,
+        detalles: { hotelId: hotelToDelete.id, nombre: hotelToDelete.nombre }
+      });
+
+      setHotelToDelete(null);
+      await fetchHotels();
+      await refreshHotels();
+    } catch (error) {
+      console.error('Error deleting hotel:', error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const toggleStatus = async (hotel: Hotel) => {
@@ -140,12 +177,17 @@ export const HotelManager: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => handleEdit(hotel)} className="p-1.5 hover:bg-white/10 rounded-md text-muted hover:text-white transition-colors">
+                  <button onClick={() => handleEdit(hotel)} className="p-1.5 hover:bg-white/10 rounded-md text-muted hover:text-white transition-colors" title="Editar Hotel">
                     <Edit2 size={14} />
                   </button>
-                  <button onClick={() => toggleStatus(hotel)} className={`p-1.5 hover:bg-white/10 rounded-md transition-colors ${hotel.estado === 'activo' ? 'text-success hover:text-success' : 'text-danger hover:text-danger'}`}>
+                  <button onClick={() => toggleStatus(hotel)} className={`p-1.5 hover:bg-white/10 rounded-md transition-colors ${hotel.estado === 'activo' ? 'text-success hover:text-success' : 'text-danger hover:text-danger'}`} title="Interruptor Operativo">
                     <Power size={14} />
                   </button>
+                  {hotel.id !== '00000000-0000-0000-0000-000000000000' && (
+                    <button onClick={() => setHotelToDelete(hotel)} className="p-1.5 hover:bg-rose-500/10 rounded-md text-muted hover:text-rose-400 transition-colors" title="Eliminar de la red">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -175,83 +217,106 @@ export const HotelManager: React.FC = () => {
         ))}
       </div>
 
-      {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <Card className="modal-content max-w-md w-full" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-xl">
-              <h2 className="text-lg font-bold">{editingHotel ? 'Editar Hotel' : 'Registrar Nuevo Hotel'}</h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/5 rounded-full">
-                <X size={20} />
-              </button>
+      {/* Edit/Create Modal */}
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+        title={editingHotel ? 'Editar Hotel' : 'Registrar Nuevo Hotel'}
+        maxWidth="500px"
+      >
+        <form onSubmit={handleSubmit} className="space-y-lg">
+          <div className="input-group">
+            <label className="input-label">Nombre del Hotel</label>
+            <input 
+              type="text" 
+              className="input text-white" 
+              value={formData.nombre}
+              onChange={e => setFormData({...formData, nombre: e.target.value})}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">Dirección</label>
+            <input 
+              type="text" 
+              className="input text-white" 
+              value={formData.direccion}
+              onChange={e => setFormData({...formData, direccion: e.target.value})}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-md">
+            <div className="input-group">
+              <label className="input-label">Teléfono</label>
+              <input 
+                type="tel" 
+                className="input text-white" 
+                value={formData.telefono}
+                onChange={e => setFormData({...formData, telefono: e.target.value})}
+              />
             </div>
+            <div className="input-group">
+              <label className="input-label">Estado</label>
+              <select 
+                className="select text-white bg-black/40" 
+                value={formData.estado}
+                onChange={e => setFormData({...formData, estado: e.target.value as 'activo' | 'inactivo'})}
+              >
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+              </select>
+            </div>
+          </div>
 
-            <form onSubmit={handleSubmit} className="space-y-lg">
-              <div className="input-group">
-                <label className="input-label">Nombre del Hotel</label>
-                <input 
-                  type="text" 
-                  className="input" 
-                  value={formData.nombre}
-                  onChange={e => setFormData({...formData, nombre: e.target.value})}
-                  required
-                />
-              </div>
+          <div className="input-group">
+            <label className="input-label">Email de Administración</label>
+            <input 
+              type="email" 
+              className="input text-white" 
+              value={formData.email}
+              onChange={e => setFormData({...formData, email: e.target.value})}
+            />
+          </div>
 
-              <div className="input-group">
-                <label className="input-label">Dirección</label>
-                <input 
-                  type="text" 
-                  className="input" 
-                  value={formData.direccion}
-                  onChange={e => setFormData({...formData, direccion: e.target.value})}
-                />
-              </div>
+          <div className="flex justify-end gap-md pt-xl border-t border-white/5">
+            <Button variant="ghost" type="button" onClick={() => setIsModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="primary" type="submit" className="bg-accent shadow-lg shadow-accent/20">
+              {editingHotel ? 'Guardar Cambios' : 'Crear Hotel'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
-              <div className="grid grid-cols-2 gap-md">
-                <div className="input-group">
-                  <label className="input-label">Teléfono</label>
-                  <input 
-                    type="tel" 
-                    className="input" 
-                    value={formData.telefono}
-                    onChange={e => setFormData({...formData, telefono: e.target.value})}
-                  />
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Estado</label>
-                  <select 
-                    className="select" 
-                    value={formData.estado}
-                    onChange={e => setFormData({...formData, estado: e.target.value as 'activo' | 'inactivo'})}
-                  >
-                    <option value="activo">Activo</option>
-                    <option value="inactivo">Inactivo</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Email de Administración</label>
-                <input 
-                  type="email" 
-                  className="input" 
-                  value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
-                />
-              </div>
-
-              <div className="flex justify-end gap-md pt-xl border-t border-white/5">
-                <Button variant="ghost" type="button" onClick={() => setIsModalOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button variant="primary" type="submit">
-                  {editingHotel ? 'Guardar Cambios' : 'Crear Hotel'}
-                </Button>
-              </div>
-            </form>
-          </Card>
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!hotelToDelete}
+        onClose={() => setHotelToDelete(null)}
+        title="Validar Baja de Unidad Operativa"
+        maxWidth="400px"
+        footer={
+          <div className="flex gap-md w-full">
+            <Button variant="ghost" className="flex-1" onClick={() => setHotelToDelete(null)}>Conservar</Button>
+            <Button variant="danger" className="flex-1 bg-rose-500 hover:bg-rose-600" onClick={handleDelete} loading={isDeleting}>Eliminar de la Red</Button>
+          </div>
+        }
+      >
+        <div className="text-center py-4">
+          <div className="w-16 h-16 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-md border border-rose-500/20">
+            <Trash2 size={32} />
+          </div>
+          <h4 className="text-lg font-bold text-white mb-2">Eliminar {hotelToDelete?.nombre}</h4>
+          <p className="text-sm text-muted">
+            Estás a punto de eliminar este hotel de la red V-Suite. Esta acción borrará el acceso principal y ya no aparecerá en el selector de hoteles.
+          </p>
+          <div className="mt-md p-md bg-rose-500/5 border border-rose-500/20 rounded-xl">
+             <p className="text-[10px] font-black uppercase text-rose-400">⚠️ Advertencia Crítica</p>
+             <p className="text-[10px] text-rose-300 opacity-60">Se requiere limpiar el inventario y equipos del hotel manualmente antes de dar de baja la unidad.</p>
+          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

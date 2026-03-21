@@ -18,6 +18,7 @@ import {
   Brush,
   UserCheck
 } from 'lucide-react';
+import { auditService } from '../../../services/auditService';
 import { supabase } from '../../../lib/supabase';
 import { configService } from '../../../services/configService';
 import { Profile, UserRole } from '../../../types';
@@ -76,7 +77,7 @@ export const UserManager: React.FC<UserManagerProps> = ({
     }
 
     try {
-      const { error: authError } = await supabase.auth.signUp({
+      const { data, error: authError } = await supabase.auth.signUp({
         email: newUser.email,
         password: newUser.password,
         options: {
@@ -91,7 +92,21 @@ export const UserManager: React.FC<UserManagerProps> = ({
 
       if (authError) throw authError;
       
-      onMessage({ type: 'success', text: 'Usuario creado exitosamente.' });
+      // Assuming the profile is created via a trigger on auth.users insert
+      // We need to wait for the profile to be created to get its ID for the audit log.
+      // A more robust solution might involve a server-side function or polling.
+      // For now, we'll assume the profile is available shortly after auth.signUp.
+      // If `data.user` is null, it means the user already exists or there was another issue.
+      if (data.user) {
+        await auditService.log({
+          accion: 'CREACION',
+          entidad: 'USUARIO',
+          descripcion: `Registrado nuevo miembro del equipo: ${newUser.nombre} (${newUser.rol})`,
+          detalles: { userId: data.user.id, rol: newUser.rol }
+        });
+      }
+
+      onMessage({ type: 'success', text: 'Usuario creado correctamente.' });
       setIsAddingUser(false);
       setNewUser({ 
         email: '', 
@@ -118,6 +133,13 @@ export const UserManager: React.FC<UserManagerProps> = ({
         hotel_id: editingUser.hotel_id,
         permisos: editingUser.permisos
       });
+
+      await auditService.log({
+        accion: 'ACTUALIZACION',
+        entidad: 'USUARIO',
+        descripcion: `Actualizados permisos/rol de: ${editingUser.nombre}`,
+        detalles: { userId: editingUser.id, rol: editingUser.rol, permisos: editingUser.permisos }
+      });
       
       onMessage({ type: 'success', text: 'Usuario actualizado correctamente.' });
       setIsEditingUser(false);
@@ -127,15 +149,33 @@ export const UserManager: React.FC<UserManagerProps> = ({
     }
   };
 
-  const handleDeleteUser = async (id: string, nombre: string) => {
-    if (!confirm(`¿Estás seguro de eliminar a ${nombre}?`)) return;
-    
+  const [userToDelete, setUserToDelete] = useState<Profile | null>(null);
+
+  const handleDeleteUser = async (user: Profile) => {
+    setUserToDelete(user);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+    setLoading(true);
     try {
-      await configService.delete('perfiles', id);
+      await configService.delete('perfiles', userToDelete.id);
+      
+      // Registrar en auditoría
+      await auditService.log({
+        accion: 'ELIMINACION',
+        entidad: 'USUARIO',
+        descripcion: `Eliminado el usuario ${userToDelete.nombre} (${userToDelete.rol})`,
+        detalles: { userId: userToDelete.id, rol: userToDelete.rol }
+      });
+
       onMessage({ type: 'success', text: 'Usuario eliminado correctamente.' });
       onRefresh();
+      setUserToDelete(null);
     } catch (error: any) {
       onMessage({ type: 'error', text: error.message });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -198,7 +238,7 @@ export const UserManager: React.FC<UserManagerProps> = ({
                       </button>
                       <button 
                         className="p-2 rounded-lg bg-white/5 text-muted hover:text-rose-400 hover:bg-rose-500/10 transition-all border border-white/5"
-                        onClick={() => handleDeleteUser(u.id, u.nombre)}
+                        onClick={() => handleDeleteUser(u)}
                         title="Borrar Acceso"
                       >
                         <Trash2 size={14} />
@@ -306,19 +346,37 @@ export const UserManager: React.FC<UserManagerProps> = ({
             <span className="divider-text">Permisos de Navegación</span>
           </div>
 
-          <div className="flex flex-wrap gap-3 justify-start">
+          <div className="flex flex-wrap gap-2 justify-start">
             {AVAILABLE_MODULES.map(module => {
               const Icon = module.icon;
               const isActive = newUser.permisos?.includes(module.id);
+              const colorMap: Record<string, string> = {
+                dashboard: '#6366f1',
+                incidencias: '#f43f5e',
+                inspecciones: '#10b981',
+                calendario: '#f59e0b',
+                inventario: '#3b82f6',
+                lecturas: '#06b6d4',
+                chat: '#8b5cf6',
+                insights: '#eab308',
+                cadenas: '#0ea5e9',
+                configuracion: '#64748b'
+              };
+              const color = colorMap[module.id] || '#6366f1';
+
               return (
                 <button 
                   key={module.id} 
                   type="button"
-                  className={`group relative flex flex-col items-center justify-center gap-3 p-3 w-[110px] rounded-[22px] border transition-all duration-500 overflow-hidden ${
+                  className={`group relative flex flex-col items-center justify-center p-3 w-[100px] rounded-2xl border transition-all duration-500 overflow-hidden ${
                     isActive 
-                      ? 'bg-accent text-white border-accent shadow-[0_10px_25px_rgba(99,102,241,0.4)] scale-[1.02]' 
-                      : 'bg-white/5 border-white/5 text-muted/60 hover:border-white/20 hover:bg-white/10 hover:text-white'
+                      ? 'translate-y-[-4px] shadow-[0_10px_20px_rgba(0,0,0,0.3)]' 
+                      : 'bg-white/5 border-white/5 text-muted hover:bg-white/10 hover:border-white/10'
                   }`}
+                  style={{ 
+                    borderColor: isActive ? color : undefined,
+                    background: isActive ? `${color}15` : undefined,
+                  } as React.CSSProperties}
                   onClick={() => {
                     const perms = isActive 
                       ? (newUser.permisos || []).filter(p => p !== module.id)
@@ -326,16 +384,25 @@ export const UserManager: React.FC<UserManagerProps> = ({
                     setNewUser({...newUser, permisos: perms});
                   }}
                 >
-                  {isActive && <div className="absolute inset-0 bg-gradient-to-tr from-accent/40 via-transparent to-transparent opacity-50 animate-pulse" />}
+                  {isActive && (
+                    <div 
+                      className="absolute inset-x-0 bottom-0 h-1" 
+                      style={{ backgroundColor: color }}
+                    />
+                  )}
                   
-                  <div className={`relative p-2.5 rounded-xl transition-all duration-500 ${isActive ? 'bg-white/20 shadow-inner' : 'bg-black/20 group-hover:scale-110'}`}>
-                    <Icon size={22} strokeWidth={2.5} />
+                  <div className={`relative p-2 rounded-xl transition-all duration-500 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} style={{ color: isActive ? color : 'inherit' }}>
+                    <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
                   </div>
-                  <span className="relative text-[10px] font-black uppercase tracking-widest text-center leading-tight">{module.name}</span>
+                  <span className={`relative text-[9px] font-black uppercase tracking-tighter text-center mt-1 ${isActive ? 'text-white' : 'text-muted'}`}>
+                    {module.name}
+                  </span>
                   
-                  {isActive && <div className="absolute top-3 right-3 text-white">
-                    <CheckCircle2 size={12} fill="white" className="text-accent" />
-                  </div>}
+                  {isActive && (
+                    <div className="absolute top-2 right-2">
+                       <CheckCircle2 size={8} style={{ color }} />
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -418,19 +485,37 @@ export const UserManager: React.FC<UserManagerProps> = ({
               <span className="divider-text">Ajustes de Capacidad</span>
             </div>
 
-            <div className="flex flex-wrap gap-3 justify-start">
+            <div className="flex flex-wrap gap-2 justify-start">
               {AVAILABLE_MODULES.map(module => {
                 const Icon = module.icon;
                 const isActive = editingUser.permisos?.includes(module.id);
+                const colorMap: Record<string, string> = {
+                  dashboard: '#6366f1',
+                  incidencias: '#f43f5e',
+                  inspecciones: '#10b981',
+                  calendario: '#f59e0b',
+                  inventario: '#3b82f6',
+                  lecturas: '#06b6d4',
+                  chat: '#8b5cf6',
+                  insights: '#eab308',
+                  cadenas: '#0ea5e9',
+                  configuracion: '#64748b'
+                };
+                const color = colorMap[module.id] || '#6366f1';
+
                 return (
                   <button 
                     key={module.id} 
                     type="button"
-                    className={`group relative flex flex-col items-center justify-center gap-3 p-3 w-[110px] rounded-[22px] border transition-all duration-500 overflow-hidden ${
+                    className={`group relative flex flex-col items-center justify-center p-3 w-[100px] rounded-2xl border transition-all duration-500 overflow-hidden ${
                       isActive 
-                        ? 'bg-accent text-white border-accent shadow-[0_10px_25px_rgba(99,102,241,0.4)] scale-[1.02]' 
-                        : 'bg-white/5 border-white/5 text-muted/60 hover:border-white/20 hover:bg-white/10 hover:text-white'
+                        ? 'translate-y-[-4px] shadow-[0_10px_20px_rgba(0,0,0,0.3)]' 
+                        : 'bg-white/5 border-white/5 text-muted hover:bg-white/10 hover:border-white/10'
                     }`}
+                    style={{ 
+                      borderColor: isActive ? color : undefined,
+                      background: isActive ? `${color}15` : undefined,
+                    } as React.CSSProperties}
                     onClick={() => {
                       const perms = isActive 
                         ? (editingUser.permisos || []).filter(p => p !== module.id)
@@ -438,16 +523,25 @@ export const UserManager: React.FC<UserManagerProps> = ({
                       setEditingUser({...editingUser, permisos: perms});
                     }}
                   >
-                    {isActive && <div className="absolute inset-0 bg-gradient-to-tr from-accent/40 via-transparent to-transparent opacity-50 animate-pulse" />}
+                    {isActive && (
+                      <div 
+                        className="absolute inset-x-0 bottom-0 h-1" 
+                        style={{ backgroundColor: color }}
+                      />
+                    )}
                     
-                    <div className={`relative p-2.5 rounded-xl transition-all duration-500 ${isActive ? 'bg-white/20 shadow-inner' : 'bg-black/20 group-hover:scale-110'}`}>
-                      <Icon size={22} strokeWidth={2.5} />
+                    <div className={`relative p-2 rounded-xl transition-all duration-500 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} style={{ color: isActive ? color : 'inherit' }}>
+                      <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
                     </div>
-                    <span className="relative text-[10px] font-black uppercase tracking-widest text-center leading-tight">{module.name}</span>
+                    <span className={`relative text-[9px] font-black uppercase tracking-tighter text-center mt-1 ${isActive ? 'text-white' : 'text-muted'}`}>
+                      {module.name}
+                    </span>
                     
-                    {isActive && <div className="absolute top-3 right-3 text-white">
-                      <CheckCircle2 size={12} fill="white" className="text-accent" />
-                    </div>}
+                    {isActive && (
+                      <div className="absolute top-2 right-2">
+                        <CheckCircle2 size={8} style={{ color }} />
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -455,6 +549,31 @@ export const UserManager: React.FC<UserManagerProps> = ({
           </div>
         )}
       </Modal>
+
+      {/* Deletion Confirmation Modal */}
+      <Modal
+        isOpen={!!userToDelete}
+        onClose={() => setUserToDelete(null)}
+        title="Confirmar Eliminación"
+        maxWidth="400px"
+        footer={
+          <div className="flex gap-md w-full">
+            <Button variant="ghost" className="flex-1" onClick={() => setUserToDelete(null)}>Cancelar</Button>
+            <Button variant="danger" className="flex-1 bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-500/20" onClick={confirmDelete} loading={loading}>Eliminar</Button>
+          </div>
+        }
+      >
+        <div className="text-center py-4">
+          <div className="w-16 h-16 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-md border border-rose-500/20">
+            <Trash2 size={32} />
+          </div>
+          <h4 className="text-lg font-bold text-white mb-2">¿Estás seguro?</h4>
+          <p className="text-sm text-muted">
+            Estás a punto de eliminar el acceso de <span className="text-white font-bold">{userToDelete?.nombre}</span>. Esta acción no se puede deshacer.
+          </p>
+        </div>
+      </Modal>
+
       <style>{`
         .zona-style-input-card {
           background: rgba(255, 255, 255, 0.03);

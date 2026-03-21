@@ -37,6 +37,9 @@ export const dbService = {
   async getSyncQueue(): Promise<OfflineMutation[]> {
     return await db.offline_mutations.toArray();
   },
+  async addToSyncQueue(mutation: any) {
+    return await db.offline_mutations.add(mutation);
+  },
   async removeFromSyncQueue(id: number) {
     await db.offline_mutations.delete(id);
   },

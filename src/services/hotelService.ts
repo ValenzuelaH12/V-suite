@@ -48,5 +48,14 @@ export const hotelService = {
       inventory: inventory.count || 0,
       users: users.count || 0
     };
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('hoteles')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   }
 };

@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Check, X, AlertCircle } from 'lucide-react';
 import { IncidentType } from '../../../types';
 import { configService } from '../../../services/configService';
-import { Card } from '../../ui/Card';
+import { Modal } from '../../ui/Modal';
 import { Button } from '../../ui/Button';
+import { auditService } from '../../../services/auditService';
 
 interface IncidentTypeManagerProps {
   types: IncidentType[];
@@ -19,16 +20,25 @@ export const IncidentTypeManager: React.FC<IncidentTypeManagerProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ nombre: '', categoria: 'general' });
   const [loading, setLoading] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<IncidentType | null>(null);
 
   const handleCreate = async () => {
     if (!formData.nombre.trim()) return;
     setLoading(true);
     try {
-      await configService.create('tipos_problemas', {
+      const newType = await configService.create('tipos_problemas', {
         nombre: formData.nombre,
         categoria: formData.categoria
       }, activeHotelId);
       
+      await auditService.log({
+        accion: 'CREACION',
+        entidad: 'TIPO_INCIDENCIA',
+        descripcion: `Nueva categoría técnica: ${formData.nombre}`,
+        detalles: { id: newType.id, ...formData },
+        hotel_id: activeHotelId || undefined
+      });
+
       onMessage({ type: 'success', text: 'Tipo de incidencia añadido' });
       setIsAdding(false);
       setFormData({ nombre: '', categoria: 'general' });
@@ -46,6 +56,15 @@ export const IncidentTypeManager: React.FC<IncidentTypeManagerProps> = ({
     setLoading(true);
     try {
       await configService.update('tipos_problemas', id, { nombre });
+      
+      await auditService.log({
+        accion: 'ACTUALIZACION',
+        entidad: 'TIPO_INCIDENCIA',
+        descripcion: `Actualizada categoría técnica a: ${nombre}`,
+        detalles: { id, nombre },
+        hotel_id: activeHotelId || undefined
+      });
+
       onMessage({ type: 'success', text: 'Tipo actualizado' });
       setEditingId(null);
       onRefresh();
@@ -57,19 +76,33 @@ export const IncidentTypeManager: React.FC<IncidentTypeManagerProps> = ({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('¿Estás seguro de eliminar este tipo? Las incidencias existentes podrían verse afectadas.')) return;
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
     setLoading(true);
     try {
-      await configService.delete('tipos_problemas', id);
+      await configService.delete('tipos_problemas', itemToDelete.id);
+      
+      await auditService.log({
+        accion: 'ELIMINACION',
+        entidad: 'TIPO_INCIDENCIA',
+        descripcion: `Eliminada categoría técnica: ${itemToDelete.nombre}`,
+        detalles: { id: itemToDelete.id, nombre: itemToDelete.nombre },
+        hotel_id: activeHotelId || undefined
+      });
+
       onMessage({ type: 'success', text: 'Tipo eliminado' });
       onRefresh();
+      setItemToDelete(null);
     } catch (error) {
       console.error(error);
       onMessage({ type: 'error', text: 'Error al eliminar' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = (type: IncidentType) => {
+    setItemToDelete(type);
   };
 
   return (
@@ -149,22 +182,20 @@ export const IncidentTypeManager: React.FC<IncidentTypeManagerProps> = ({
                   )}
                 </div>
                 
-                {(type.hotel_id || activeHotelId === null) && (
-                  <div className="flex gap-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => setEditingId(type.id)}
-                      className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted hover:text-accent hover:bg-accent/10 transition-all"
-                    >
-                      <Edit2 size={12} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(type.id)}
-                      className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted hover:text-rose-500 hover:bg-rose-500/10 transition-all"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => setEditingId(type.id)}
+                    className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted hover:text-accent hover:bg-accent/10 transition-all"
+                  >
+                    <Edit2 size={12} />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(type)}
+                    className="p-1.5 bg-white/5 border border-white/5 rounded-lg text-muted hover:text-rose-500 hover:bg-rose-500/10 transition-all"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -178,6 +209,29 @@ export const IncidentTypeManager: React.FC<IncidentTypeManagerProps> = ({
           )}
         </div>
       </div>
+
+      <Modal
+        isOpen={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        title="Validar Borrado de Categoría"
+        maxWidth="400px"
+        footer={
+          <div className="flex gap-md w-full">
+            <Button variant="ghost" className="flex-1 border-white/5" onClick={() => setItemToDelete(null)}>Conservar</Button>
+            <Button variant="danger" className="flex-1 bg-rose-500 hover:bg-rose-600 shadow-lg shadow-rose-500/20" onClick={confirmDelete} loading={loading}>Ejecutar Baja</Button>
+          </div>
+        }
+      >
+        <div className="text-center py-4">
+          <div className="w-16 h-16 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-md border border-rose-500/20">
+            <Trash2 size={32} />
+          </div>
+          <h4 className="text-lg font-bold text-white mb-2 tracking-tight">¿Eliminar Categoría Técnica?</h4>
+          <p className="text-sm text-muted/80 leading-relaxed uppercase tracking-widest text-[9px] font-black">
+            Se perderá la clasificación para <span className="text-rose-400">{itemToDelete?.nombre}</span>.<br/> Las incidencias históricas mantendrán el registro pero el tipo quedará obsoleto.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 };
