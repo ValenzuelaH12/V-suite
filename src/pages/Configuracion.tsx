@@ -267,21 +267,35 @@ export default function Configuracion() {
         @media (max-width: 1024px) {
           .config-layout {
             grid-template-columns: 1fr;
+            margin-top: var(--spacing-sm);
           }
           .config-sidebar {
             position: sticky;
-            top: 0;
+            top: var(--header-height);
             z-index: 10;
-            margin-bottom: var(--spacing-lg);
+            margin-bottom: var(--spacing-md);
+            padding: 0.5rem !important;
           }
           .config-sidebar nav {
-            flex-direction: row;
+            flex-direction: row !important;
             overflow-x: auto;
-            padding: 0.25rem;
+            padding: 0.25rem 0;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            gap: var(--spacing-xs);
+          }
+          .config-sidebar nav::-webkit-scrollbar {
+            display: none;
           }
           .config-nav-btn {
             white-space: nowrap;
             padding: 0.625rem 1rem;
+            flex-shrink: 0;
+            width: auto !important;
+            font-size: 0.8rem;
+          }
+          .config-nav-btn span {
+            font-size: 0.8rem;
           }
         }
       `}</style>
