@@ -288,14 +288,19 @@ export default function Configuracion() {
             padding: 0.75rem 1rem;
             flex-shrink: 0;
             width: calc(50% - var(--spacing-xs)) !important; /* Cuadrícula de 2 columnas en móvil */
-            font-size: 0.8rem;
-            justify-content: center;
+            font-size: 0.75rem;
+            justify-content: flex-start;
+            padding: 0.5rem 0.75rem;
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
           }
           .config-nav-btn span {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
           .config-nav-btn.active {
              background: var(--color-accent) !important;

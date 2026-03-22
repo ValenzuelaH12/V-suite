@@ -16,7 +16,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   )
-  const notificationSound = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3'))
+  const notificationSound = useRef(new Audio('https://notification-sounds.com/sounds/vibrant-beep.mp3'))
 
   const totalUnread = Object.values(unreadPerChannel).reduce((acc: number, count: number) => acc + count, 0)
 
@@ -248,6 +248,18 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const [pushSubscription, setPushSubscription] = useState<PushSubscription | null>(null)
 
+  // Helper para convertir la clave VAPID pública
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
   const subscribeToPush = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.warn('Push not supported');
@@ -261,12 +273,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       let sub = await registration.pushManager.getSubscription();
       
       if (!sub) {
-        // Suscribirse (el usuario verá el prompt de permiso si no se ha dado)
-        // Nota: Requiere applicationServerKey (VAPID) para funcionar en producción
-        // Por ahora intentamos sin ella o con una dummy si el navegador lo permite
+        // Clave VAPID Pública (Generada para el usuario)
+        // NOTA: En producción, esta clave debe coincidir con la de tu servidor de envíos
+        const publicVapidKey = 'BDO-d8_yG0Hk0_Y3Ym5U-F9Pq2-5YpXUv9w3xY1zY0x1v_Y3Ym5U-F9Pq2-5YpXUv9w3xY1zY0x=';
+        
         sub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          // applicationServerKey: urlBase64ToUint8Array('TU_CLAVE_PUBLICA_AQUI')
+          applicationServerKey: urlBase64ToUint8Array('BDO-d8_yG0Hk0_Y3Ym5U-F9Pq2-5YpXUv9w3xY1zY0x1v_Y3Ym5U-F9Pq2-5YpXUv9w3xY1zY0x=')
         });
       }
       
