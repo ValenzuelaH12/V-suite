@@ -4,6 +4,11 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useNotifications } from '../context/NotificationContext'
 import { useToast } from '../components/Toast'
+import { NewChatModal } from '../components/features/chat/NewChatModal'
+import { MessageBubble } from '../components/features/chat/MessageBubble'
+import { ChatSidebar } from '../components/features/chat/ChatSidebar'
+import { DeleteConfirmationModal } from '../components/features/chat/DeleteConfirmationModal'
+import { ChatInput } from '../components/features/chat/ChatInput'
 
 export default function Chat() {
   const { profile } = useAuth()
@@ -348,42 +353,6 @@ export default function Chat() {
     return channel.nombre || 'Sin nombre'
   }
 
-  const renderChannelItem = (channel) => {
-    const displayName = getChannelDisplayName(channel)
-    const firstLetter = displayName?.charAt(0).toUpperCase()
-    const isDM = channel?.id?.startsWith('dm_')
-    
-    let avatarClass = 'bg-secondary text-muted'
-    if (channel.id === 'general') avatarClass = 'avatar-gradient'
-    else if (channel.id === 'mantenimiento') avatarClass = 'bg-info-light text-info'
-    else if (channel.id === 'limpieza') avatarClass = 'bg-success-light text-success'
-    else if (channel.id === 'direccion') avatarClass = 'bg-danger-light text-danger'
-    else if (isDM) avatarClass = 'bg-accent-light text-accent'
-
-    return (
-      <div 
-        key={channel.id} 
-        className={`channel-item ${activeChannel === channel.id ? 'active' : ''}`}
-        onClick={() => {
-          setActiveChannel(channel.id)
-          setShowChatMobile(true)
-        }}
-      >
-        <div className={`avatar avatar-sm ${avatarClass}`}>
-          {firstLetter}
-        </div>
-        <div className="conversation-details">
-          <div className="conversation-top">
-            <h4>{isDM ? displayName : `#${displayName}`}</h4>
-          </div>
-          {unreadPerChannel[channel.id] > 0 && (
-            <div className="unread-badge">{unreadPerChannel[channel.id]}</div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
   const handleDeleteMessage = (messageId: number) => {
     setDeleteConfirm({
       show: true,
@@ -482,59 +451,21 @@ export default function Chat() {
     <div className="chat-page">
       <div className="chat-layout glass-card">
         
-        {/* Lista de Conversaciones */}
-        <div className={`chat-sidebar border-r ${showChatMobile ? 'mobile-hidden' : ''}`}>
-          <div className="chat-sidebar-header border-b">
-            <div className="flex items-center justify-between">
-              <h3>Mensajes</h3>
-              <button 
-                className="btn-icon btn-ghost text-primary" 
-                onClick={() => setShowNewChatModal(true)}
-                title="Nuevo Chat/Grupo"
-              >
-                <Plus size={20} />
-              </button>
-            </div>
-            <div className="search-bar variant-small mt-md">
-              <input 
-                type="text" 
-                placeholder="Buscar chat..." 
-                className="search-input" 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <div className="conversation-list">
-            {/* Sección de Canales de Equipo */}
-            <div className="chat-section">
-              <h5 className="section-title">Canales de Equipo</h5>
-              {channels
-                .filter(c => c?.id && !c.id.startsWith('dm_'))
-                .filter(c => {
-                  // Filtrado por rol para canales sensibles
-                  if (c.id === 'direccion' && !['direccion', 'admin'].includes(profile?.rol)) return false
-                  return true
-                })
-                .filter(c => getChannelDisplayName(c).toLowerCase().includes(searchQuery.toLowerCase()))
-                .map(channel => renderChannelItem(channel))}
-            </div>
-
-            {/* Sección de Mensajes Directos */}
-            <div className="chat-section mt-lg">
-              <h5 className="section-title">Mensajes Directos</h5>
-              {channels
-                .filter(c => c?.id && c.id.startsWith('dm_'))
-                .filter(c => getChannelDisplayName(c).toLowerCase().includes(searchQuery.toLowerCase()))
-                .map(channel => renderChannelItem(channel))}
-              
-              {channels.filter(c => c.id.startsWith('dm_')).length === 0 && (
-                <p className="text-xs text-muted px-lg italic">Sin mensajes directos</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <ChatSidebar 
+          channels={channels}
+          activeChannel={activeChannel}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onChannelSelect={(id) => {
+            setActiveChannel(id)
+            setShowChatMobile(true)
+          }}
+          onNewChat={() => setShowNewChatModal(true)}
+          showChatMobile={showChatMobile}
+          profile={profile}
+          getChannelDisplayName={getChannelDisplayName}
+          unreadPerChannel={unreadPerChannel}
+        />
 
         {/* Área de Chat Activo */}
         <div className={`chat-main ${!showChatMobile ? 'mobile-hidden' : ''}`}>
@@ -586,59 +517,14 @@ export default function Chat() {
                 const showAvatar = index === 0 || filteredMessages[index - 1].sender !== msg.sender
               
               return (
-                <div key={msg.id} className={`message-wrapper ${msg.isMe ? 'is-me' : 'is-other'}`}>
-                  {!msg.isMe && showAvatar ? (
-                    <div className="avatar avatar-sm avatar-gradient ml-none">
-                      {msg.sender.charAt(0)}
-                    </div>
-                  ) : (
-                    !msg.isMe && <div className="avatar-placeholder"></div>
-                  )}
-                  
-                  <div className="message-content">
-                    {!msg.isMe && showAvatar && (
-                      <span className="message-sender">
-                        {msg.sender} <span className="message-role">({msg.role})</span>
-                      </span>
-                    )}
-                    
-                    <div className={`message ${msg.isMe ? 'sent' : 'received'} group relative`}>
-                      {(msg.isMe || ['admin', 'super_admin', 'direccion'].includes(profile?.rol)) && (
-                        <button 
-                          className="msg-delete-btn opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleDeleteMessage(msg.id)}
-                          title="Eliminar mensaje"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      )}
-                      {msg.mediaUrl && (
-                        <div className="message-media mb-sm">
-                          {msg.mediaType?.startsWith('image/') ? (
-                            <img src={msg.mediaUrl} alt="Media" className="media-preview" onClick={() => window.open(msg.mediaUrl, '_blank')} />
-                          ) : msg.mediaType?.startsWith('video/') ? (
-                            <video src={msg.mediaUrl} controls className="media-preview" />
-                          ) : msg.mediaType?.startsWith('audio/') ? (
-                            <audio src={msg.mediaUrl} controls className="audio-player" />
-                          ) : (
-                            <a href={msg.mediaUrl} target="_blank" rel="noreferrer" className="file-attachment">
-                              <Paperclip size={16} /> Ver archivo adjunto
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      <p>{msg.text}</p>
-                      <div className="message-meta">
-                        <span className="message-time">{msg.time}</span>
-                        {msg.isMe && (
-                          <span className="message-status">
-                            {msg.read ? <CheckCheck size={14} className="text-info" /> : <Check size={14} />}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <MessageBubble 
+                  key={msg.id}
+                  msg={msg}
+                  profile={profile}
+                  showAvatar={showAvatar}
+                  onDelete={handleDeleteMessage}
+                  onOpenMedia={(url) => window.open(url, '_blank')}
+                />
               )
             })}
             {uploading && (
@@ -655,132 +541,36 @@ export default function Chat() {
             <div ref={messagesEndRef} />
           </div>
 
-          <form onSubmit={handleSend} className="chat-input-area border-t">
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              style={{ display: 'none' }} 
-              accept={fileType}
-              onChange={handleFileUpload}
-            />
-            
-            <button type="button" className="btn-icon btn-ghost text-muted" onClick={() => handleFileClick('*/*')}>
-              <Paperclip size={20} />
-            </button>
-            <button type="button" className="btn-icon btn-ghost text-muted" onClick={() => handleFileClick('image/*')}>
-              <ImageIcon size={20} />
-            </button>
-            <button type="button" className="btn-icon btn-ghost text-muted" onClick={() => handleFileClick('video/*')}>
-              <Video size={20} />
-            </button>
-            
-            <div className="voice-record-container">
-              {isRecording ? (
-                <button type="button" className="btn-icon btn-danger pulse" onClick={stopRecording}>
-                  <Square size={20} fill="currentColor" />
-                </button>
-              ) : (
-                <button type="button" className="btn-icon btn-ghost text-primary" onClick={startRecording}>
-                  <Mic size={20} />
-                </button>
-              )}
-            </div>
-            
-            <input 
-              type="text" 
-              className="chat-input" 
-              placeholder="Escribe un mensaje..." 
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              disabled={uploading}
-            />
-            
-            <button 
-              type="submit" 
-              className={`btn-icon ${newMessage.trim() ? 'btn-primary' : 'btn-secondary text-muted'}`}
-              disabled={!newMessage.trim()}
-            >
-              <Send size={18} />
-            </button>
-          </form>
+          <ChatInput
+            newMessage={newMessage}
+            onNewMessageChange={setNewMessage}
+            onSend={handleSend}
+            onFileClick={handleFileClick}
+            fileType={fileType}
+            onFileUpload={handleFileUpload}
+            isRecording={isRecording}
+            onStartRecording={startRecording}
+            onStopRecording={stopRecording}
+            uploading={uploading}
+            fileInputRef={fileInputRef}
+          />
         </div>
       </div>
 
-      {/* Modal para Nuevo Chat / Chat Privado */}
-      {showNewChatModal && (
-        <div className="modal-overlay" onClick={() => setShowNewChatModal(false)}>
-          <div className="modal-content glass-card p-none animate-scale-in max-w-md w-full" onClick={e => e.stopPropagation()}>
-            <div className="modal-header border-b p-lg flex items-center justify-between">
-              <h2 className="text-xl font-bold flex items-center gap-sm">
-                <MessageSquare size={24} className="text-primary" /> Nuevo Chat
-              </h2>
-              <button className="btn-icon btn-ghost" onClick={() => setShowNewChatModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="modal-body p-lg">
-              <div className="mb-md">
-                <h3 className="text-sm font-semibold text-muted mb-sm uppercase tracking-wider">Contactos (Mensaje Directo)</h3>
-                <div className="users-list">
-                  {allUsers.length > 0 ? (
-                    allUsers.map(user => (
-                      <div 
-                        key={user.id} 
-                        className="user-list-item flex items-center gap-md p-md rounded-md cursor-pointer hover-bg-light transition-all"
-                        onClick={() => handleCreateDirectMessage(user)}
-                      >
-                        <div className="avatar bg-primary-light text-primary">
-                          {user.nombre?.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-medium">{user.nombre}</div>
-                          <div className="text-xs text-muted capitalize">{user.rol}</div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted italic p-md">No hay otros usuarios registrados.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <NewChatModal
+        isOpen={showNewChatModal}
+        onClose={() => setShowNewChatModal(false)}
+        allUsers={allUsers}
+        onCreateDirectMessage={handleCreateDirectMessage}
+      />
 
-      {/* Modal de Confirmación de Borrado */}
-      {deleteConfirm.show && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#1a1c24] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="p-6">
-              <div className="flex items-center gap-4 mb-4 text-red-400">
-                <div className="p-3 bg-red-400/10 rounded-full">
-                  <Trash2 size={24} />
-                </div>
-                <h3 className="text-xl font-semibold text-white">{deleteConfirm.title}</h3>
-              </div>
-              <p className="text-gray-400 leading-relaxed">
-                {deleteConfirm.description}
-              </p>
-            </div>
-            <div className="flex border-t border-white/5">
-              <button 
-                onClick={() => setDeleteConfirm(prev => ({ ...prev, show: false }))}
-                className="flex-1 px-6 py-4 text-gray-400 hover:bg-white/5 transition-colors font-medium border-r border-white/5"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={confirmDelete}
-                className="flex-1 px-6 py-4 text-red-400 hover:bg-red-400/10 transition-colors font-semibold"
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmationModal 
+        isOpen={deleteConfirm.show}
+        onClose={() => setDeleteConfirm(prev => ({ ...prev, show: false }))}
+        onConfirm={confirmDelete}
+        title={deleteConfirm.title}
+        description={deleteConfirm.description}
+      />
 
       <style>{`
         .modal-overlay {

@@ -1,34 +1,47 @@
-self.addEventListener('push', function(event) {
-  const data = event.data ? event.data.json() : {
-    title: 'Actualización de HotelOps Pro',
-    body: 'Tienes una nueva tarea o alerta pendiente.'
-  };
+const CACHE_NAME = 'v-suite-v1';
 
-  const options = {
-    body: data.body,
-    icon: '/icon-192x192.png',
-    badge: '/badge-72x72.png',
-    vibrate: [100, 50, 100],
-    data: {
-      url: data.url || '/'
-    },
-    actions: [
-      { action: 'open', title: 'Ver Detalle' },
-      { action: 'close', title: 'Cerrar' }
-    ]
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
+// Al instalar, podemos cachear recursos básicos (opcional para PWA completa)
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
 });
 
-self.addEventListener('notificationclick', function(event) {
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});
+
+// Manejar notificaciones push (si se integran con un servidor de Push)
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'Alerta V-Suite';
+  const options = {
+    body: data.body || 'Nueva actualización disponible.',
+    icon: '/pwa-192x192.png',
+    badge: '/favicon.svg',
+    data: data.url || '/',
+    tag: data.tag || 'vsuite-notification',
+    requireInteraction: data.urgent || false
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Manejar el clic en la notificación
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  
-  if (event.action === 'close') return;
+  const urlToOpen = event.notification.data || '/';
 
   event.waitUntil(
-    self.clients.openWindow(event.notification.data.url)
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Si ya hay una pestaña abierta, enfocarla y navegar
+      for (let client of windowClients) {
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Si no hay pestaña abierta, abrir una nueva
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
   );
 });

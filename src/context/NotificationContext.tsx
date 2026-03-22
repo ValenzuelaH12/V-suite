@@ -60,6 +60,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       
       notif.onclick = () => {
         window.focus()
+        if (options?.data) {
+          window.location.href = options.data
+        }
         notif.close()
       }
     } catch (err) {
@@ -100,7 +103,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (document.hidden || window.location.pathname !== '/chat') {
           sendNotification(`Nuevo mensaje en ${msg.channel}`, {
             body: msg.text_content,
-            tag: 'chat-notification'
+            tag: 'chat-notification',
+            data: '/chat'
           })
         }
       })
@@ -117,7 +121,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           sendNotification('🚨 ALERTA V-SUITE', {
             body: `${inc.title} en ${inc.location}`,
             tag: 'urgent-incident',
-            requireInteraction: true
+            requireInteraction: true,
+            data: `/incidencias?id=${inc.id}`
           })
           
           // Toast visual interno
@@ -137,7 +142,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           sendNotification('📍 NUEVA ASIGNACIÓN', {
             body: `Se te ha asignado: ${inc.title} en ${inc.location}`,
             tag: `assign-${inc.id}`,
-            icon: '/icon-192x192.png'
+            icon: '/icon-192x192.png',
+            data: `/incidencias?id=${inc.id}`
           })
           toast.info(`Nueva incidencia asignada: ${inc.title}`)
         }

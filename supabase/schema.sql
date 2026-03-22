@@ -1,19 +1,17 @@
+-- ==========================================
+-- 1. ESTRUCTURA DE TABLAS (FORCE COLUMNS)
+-- ==========================================
+
 -- Tabla Perfiles
 create table if not exists public.perfiles (
   id uuid references auth.users on delete cascade not null primary key,
   nombre text not null,
   rol text not null check (rol in ('super_admin', 'admin', 'recepcion', 'mantenimiento', 'limpieza', 'direccion')),
-  hotel text not null,
+  hotel text not null default 'Hotel Central',
   permisos text[] default array['dashboard', 'incidencias', 'chat']::text[],
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
-
--- Habilitar RLS (Row Level Security)
-alter table public.perfiles enable row level security;
-do $$ begin create policy "Perfiles publicos para usuarios autenticados" on public.perfiles for select to authenticated using (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "Usuarios pueden editar su propio perfil" on public.perfiles for update to authenticated using (auth.uid() = id); exception when duplicate_object then null; end $$;
-do $$ begin create policy "Admins pueden editar perfiles" on public.perfiles for update to authenticated using (exists (select 1 from public.perfiles where id = auth.uid() and (rol = 'admin' or rol = 'direccion'))); exception when duplicate_object then null; end $$;
-do $$ begin create policy "Admins pueden borrar perfiles" on public.perfiles for delete to authenticated using (exists (select 1 from public.perfiles where id = auth.uid() and (rol = 'admin' or rol = 'direccion'))); exception when duplicate_object then null; end $$;
+alter table public.perfiles add column if not exists hotel text not null default 'Hotel Central';
 
 -- Tabla Incidencias
 create table if not exists public.incidencias (
@@ -25,13 +23,7 @@ create table if not exists public.incidencias (
   reporter_id uuid references public.perfiles(id) not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
-
-alter table public.incidencias enable row level security;
-do $$ begin create policy "Todas las incidencias visibles" on public.incidencias for select to authenticated using (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "Cualquier usuario puede insertar" on public.incidencias for insert to authenticated with check (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "Cualquier usuario puede actualizar" on public.incidencias for update to authenticated using (true); exception when duplicate_object then null; end $$;
-
--- Update Incidencias to include assignment
+alter table public.incidencias add column if not exists hotel text not null default 'Hotel Central';
 alter table public.incidencias add column if not exists assigned_to uuid references public.perfiles(id);
 alter table public.incidencias add column if not exists descripcion text;
 alter table public.incidencias add column if not exists media_urls text[];
@@ -47,11 +39,7 @@ create table if not exists public.controles (
   completed integer not null default 0,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
-
-alter table public.controles enable row level security;
-do $$ begin create policy "Todos los controles visibles" on public.controles for select to authenticated using (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "Cualquier usuario puede insertar controles" on public.controles for insert to authenticated with check (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "Cualquier usuario puede actualizar controles" on public.controles for update to authenticated using (true); exception when duplicate_object then null; end $$;
+alter table public.controles add column if not exists hotel text not null default 'Hotel Central';
 
 -- Tabla Mensajes de Chat
 create table if not exists public.mensajes (
@@ -62,12 +50,61 @@ create table if not exists public.mensajes (
   read boolean not null default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+alter table public.mensajes add column if not exists hotel text not null default 'Hotel Central';
 
+-- Tabla de Zonas
+create table if not exists public.zonas (
+    id uuid default gen_random_uuid() primary key,
+    nombre text not null,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+alter table public.zonas add column if not exists hotel text not null default 'Hotel Central';
+
+-- Tabla de Inventario
+create table if not exists public.inventario (
+    id uuid default gen_random_uuid() primary key,
+    nombre text not null,
+    categoria text not null,
+    stock_actual integer default 0,
+    stock_minimo integer default 5,
+    unidad text default 'unidades',
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+alter table public.inventario add column if not exists hotel text not null default 'Hotel Central';
+
+-- ==========================================
+-- 2. HABILITAR RLS Y POLÍTICAS (CON ALIAS EXPLÍCITOS)
+-- ==========================================
+
+-- Perfiles (MODO EMERGENCIA: Desactivar RLS preventivamente para restaurar acceso)
+alter table public.perfiles disable row level security;
+drop policy if exists "Usuarios ven su propio perfil" on public.perfiles;
+drop policy if exists "Usuarios ven otros de su hotel" on public.perfiles;
+
+-- Incidencias (MODO SIMPLIFICADO: Solo auth para recuperar visibilidad)
+alter table public.incidencias disable row level security;
+alter table public.mensajes disable row level security;
+alter table public.controles disable row level security;
+alter table public.zonas disable row level security;
+alter table public.habitaciones disable row level security;
+alter table public.inventario disable row level security;
+alter table public.contadores disable row level security;
+alter table public.lecturas disable row level security;
+
+drop policy if exists "Insertar incidencias por hotel" on public.incidencias;
+create policy "Insertar incidencias por hotel" on public.incidencias for insert to authenticated 
+with check ( hotel = (select p.hotel from public.perfiles p where p.id = auth.uid()) or (select p2.rol from public.perfiles p2 where p2.id = auth.uid()) = 'super_admin' );
+
+-- Mensajes
 alter table public.mensajes enable row level security;
-do $$ begin create policy "Mensajes publicos" on public.mensajes for select to authenticated using (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "Insertar mensajes" on public.mensajes for insert to authenticated with check (true); exception when duplicate_object then null; end $$;
+drop policy if exists "Mensajes visibles por hotel" on public.mensajes;
+create policy "Mensajes visibles por hotel" on public.mensajes for select to authenticated 
+using ( hotel = (select p.hotel from public.perfiles p where p.id = auth.uid()) or (select p2.rol from public.perfiles p2 where p2.id = auth.uid()) = 'super_admin' );
 
--- Function to handle new user registration
+-- ==========================================
+-- 3. FUNCIONES Y TRIGGERS
+-- ==========================================
+
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -85,274 +122,3 @@ begin
   return new;
 end;
 $$ language plpgsql security definer;
-
--- Trigger to automatically create profile for new auth users
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
-
--- TABLA DE ZONAS
-CREATE TABLE IF NOT EXISTS public.zonas (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    nombre text NOT NULL,
-    hotel text DEFAULT 'Hotel Central',
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-ALTER TABLE public.zonas ENABLE ROW LEVEL SECURITY;
-
-DO $$ BEGIN
-    CREATE POLICY "Usuarios autenticados pueden ver zonas" ON public.zonas FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "Solo administradores pueden manejar zonas" ON public.zonas FOR ALL USING (
-        EXISTS (SELECT 1 FROM public.perfiles WHERE id = auth.uid() AND (rol = 'admin' OR rol = 'direccion'))
-    );
-EXCEPTION WHEN others THEN null; END $$;
-
--- TABLA DE TIPOS DE PROBLEMAS
-CREATE TABLE IF NOT EXISTS public.tipos_problemas (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    nombre text NOT NULL,
-    categoria text DEFAULT 'general',
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-ALTER TABLE public.tipos_problemas ENABLE ROW LEVEL SECURITY;
-
-DO $$ BEGIN
-    CREATE POLICY "Usuarios autenticados pueden ver tipos" ON public.tipos_problemas FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "Solo administradores pueden manejar tipos" ON public.tipos_problemas FOR ALL USING (
-        EXISTS (SELECT 1 FROM public.perfiles WHERE id = auth.uid() AND (rol = 'admin' OR rol = 'direccion'))
-    );
-EXCEPTION WHEN others THEN null; END $$;
-
--- DATOS INICIALES
-INSERT INTO public.zonas (nombre) VALUES ('Planta 1'), ('Planta 2'), ('Planta 3'), ('RecepciÃ³n'), ('Piscina'), ('Gimnasio'), ('Restaurante'), ('Parking')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO public.tipos_problemas (nombre, categoria) VALUES 
-('FontanerÃ­a', 'mantenimiento'), 
-('Electricidad', 'mantenimiento'), 
-('Limpieza', 'limpieza'), 
-('Wifi/Internet', 'it'), 
-('Aire Acondicionado', 'mantenimiento'), 
-('Mobiliario', 'general'), 
-('Otros', 'general')
-ON CONFLICT DO NOTHING;
-
--- TABLA DE HABITACIONES
-CREATE TABLE IF NOT EXISTS public.habitaciones (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    zona_id uuid REFERENCES public.zonas(id) ON DELETE CASCADE,
-    nombre text NOT NULL,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-ALTER TABLE public.habitaciones ENABLE ROW LEVEL SECURITY;
-
-DO $$ BEGIN
-    CREATE POLICY "Usuarios autenticados pueden ver habitaciones" ON public.habitaciones FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "Solo administradores pueden manejar habitaciones" ON public.habitaciones FOR ALL USING (
-        EXISTS (SELECT 1 FROM public.perfiles WHERE id = auth.uid() AND (rol = 'admin' OR rol = 'direccion'))
-    );
-EXCEPTION WHEN others THEN null; END $$;
-
--- TABLA DE MANTENIMIENTO PREVENTIVO
-CREATE TABLE IF NOT EXISTS public.mantenimiento_preventivo (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    titulo text NOT NULL,
-    descripcion text,
-    frecuencia text NOT NULL CHECK (frecuencia IN ('diaria', 'semanal', 'mensual', 'trimestral', 'semestral', 'anual')),
-    proxima_fecha date NOT NULL DEFAULT CURRENT_DATE,
-    ultima_ejecucion timestamp with time zone,
-    creado_por uuid REFERENCES public.perfiles(id),
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-ALTER TABLE public.mantenimiento_preventivo ENABLE ROW LEVEL SECURITY;
-
-DO $$ BEGIN
-    CREATE POLICY "Usuarios autenticados pueden ver mantenimiento" ON public.mantenimiento_preventivo FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "Solo mantenimiento y admins pueden gestionar tareas" ON public.mantenimiento_preventivo FOR ALL USING (
-        EXISTS (SELECT 1 FROM public.perfiles WHERE id = auth.uid() AND (rol IN ('admin', 'direccion', 'mantenimiento')))
-    );
-EXCEPTION WHEN others THEN null; END $$;
-
--- TABLA DE HISTORIAL DE MANTENIMIENTO
-CREATE TABLE IF NOT EXISTS public.historial_mantenimiento (
-    id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-    tarea_id uuid REFERENCES public.mantenimiento_preventivo(id) ON DELETE CASCADE,
-    completado_el timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    completado_por uuid REFERENCES public.perfiles(id),
-    notas text,
-    items_completados jsonb DEFAULT '[]'::jsonb,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-ALTER TABLE public.historial_mantenimiento ENABLE ROW LEVEL SECURITY;
-
-DO $$ BEGIN
-    CREATE POLICY "Usuarios autenticados pueden ver historial" ON public.historial_mantenimiento FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "Mantenimiento y admins pueden insertar historial" ON public.historial_mantenimiento FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM public.perfiles WHERE id = auth.uid() AND (rol IN ('admin', 'direccion', 'mantenimiento')))
-    );
-EXCEPTION WHEN others THEN null; END $$;
-
--- TABLA DE ELEMENTOS DE MANTENIMIENTO (SUB-TAREAS)
-CREATE TABLE IF NOT EXISTS public.elementos_mantenimiento (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    tarea_id uuid REFERENCES public.mantenimiento_preventivo(id) ON DELETE CASCADE,
-    nombre text NOT NULL,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-ALTER TABLE public.elementos_mantenimiento ENABLE ROW LEVEL SECURITY;
-
-DO $$ BEGIN
-    CREATE POLICY "Usuarios autenticados pueden ver elementos" ON public.elementos_mantenimiento FOR SELECT USING (auth.role() = 'authenticated');
-    CREATE POLICY "Mantenimiento y admins pueden gestionar elementos" ON public.elementos_mantenimiento FOR ALL USING (
-        EXISTS (SELECT 1 FROM public.perfiles WHERE id = auth.uid() AND (rol IN ('admin', 'direccion', 'mantenimiento')))
-    );
-EXCEPTION WHEN others THEN null; END $$;
-
--- TABLA DE INVENTARIO
-CREATE TABLE IF NOT EXISTS public.inventario (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    nombre text NOT NULL,
-    categoria text NOT NULL,
-    stock_actual integer DEFAULT 0,
-    stock_minimo integer DEFAULT 5,
-    unidad text DEFAULT 'unidades',
-    ultima_actualizacion timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
-    actualizado_por uuid REFERENCES public.perfiles(id),
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-ALTER TABLE public.inventario ENABLE ROW LEVEL SECURITY;
-
-DO $$ BEGIN
-    CREATE POLICY "Cualquier usuario puede ver inventario" ON public.inventario FOR SELECT TO authenticated USING (true);
-    CREATE POLICY "Solo admins y responsables pueden gestionar stock" ON public.inventario FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.perfiles WHERE id = auth.uid() AND (rol IN ('admin', 'direccion', 'mantenimiento', 'recepcion')))
-    );
-EXCEPTION WHEN others THEN null; END $$;
-
--- TABLA DE CONTADORES
-create table if not exists public.contadores (
-    id uuid default gen_random_uuid() primary key,
-    nombre text not null,
-    tipo text not null check (tipo in ('agua', 'luz', 'gas', 'diesel', 'otros')),
-    ubicacion text,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
-alter table public.contadores enable row level security;
-
-do $$ begin
-    create policy "Usuarios autenticados pueden ver contadores" on public.contadores
-        for select using (auth.role() = 'authenticated');
-    create policy "Admins y mantenimiento pueden gestionar contadores" on public.contadores
-        for all using (
-            exists (select 1 from public.perfiles where id = auth.uid() and rol in ('admin', 'direccion', 'mantenimiento'))
-        );
-exception when others then null; end $$;
-
--- TABLA DE LECTURAS
-create table if not exists public.lecturas (
-    id bigint generated by default as identity primary key,
-    contador_id uuid references public.contadores(id) on delete cascade not null,
-    valor numeric not null,
-    fecha date default current_date not null,
-    notas text,
-    registrado_por uuid references public.perfiles(id),
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
-alter table public.lecturas enable row level security;
-
-do $$ begin
-    create policy "Usuarios autenticados pueden ver lecturas" on public.lecturas
-        for select using (auth.role() = 'authenticated');
-    create policy "Admins y mantenimiento pueden insertar lecturas" on public.lecturas
-        for insert with check (
-            exists (select 1 from public.perfiles where id = auth.uid() and rol in ('admin', 'direccion', 'mantenimiento'))
-        );
-    create policy "Solo el autor o admins pueden borrar lecturas" on public.lecturas
-        for delete using (
-            auth.uid() = registrado_por or 
-            exists (select 1 from public.perfiles where id = auth.uid() and rol in ('admin', 'direccion'))
-        );
-exception when others then null; end $$;
-
--- ACTUALIZACIONES PARA CHAT AVANZADO (FASE 3)
--- Añadir tipo a la tabla de canales
-alter table public.canales add column if not exists type text default 'public' check (type in ('public', 'private', 'direct'));
-alter table public.canales add column if not exists created_by uuid references public.perfiles(id);
-
--- Nueva tabla para miembros de canal
-create table if not exists public.canal_miembros (
-  id uuid default gen_random_uuid() primary key,
-  canal_id text references public.canales(id) on delete cascade not null,
-  user_id uuid references public.perfiles(id) on delete cascade not null,
-  joined_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  unique(canal_id, user_id)
-);
-
-alter table public.canal_miembros enable row level security;
-
--- Políticas para canal_miembros
-do $`$ begin create policy "Usuarios pueden ver miembros de canales públicos o donde son miembros" on public.canal_miembros for select using (
-  exists (select 1 from public.canales c where c.id = canal_miembros.canal_id and c.type = 'public') or
-  exists (select 1 from public.canal_miembros cm where cm.canal_id = canal_miembros.canal_id and cm.user_id = auth.uid())
-); exception when duplicate_object then null; end $`$;
-
-do $`$ begin create policy "Usuarios pueden unirse a canales públicos o ser añadidos" on public.canal_miembros for insert with check (
-  user_id = auth.uid() or 
-  exists (select 1 from public.canales c where c.id = canal_id and c.created_by = auth.uid())
-); exception when duplicate_object then null; end $`$;
-
--- Update channels RLS
-drop policy if exists "Canales publicos" on public.canales;
-do $`$ begin create policy "Usuarios pueden ver canales públicos o donde son miembros" on public.canales for select using (
-  type = 'public' or
-  created_by = auth.uid() or
-  exists (select 1 from public.canal_miembros cm where (cm.canal_id)::text = (id)::text and (cm.user_id)::text = (auth.uid())::text)
-); exception when duplicate_object then null; end $`$;
-
-do $`$ begin create policy "Usuarios pueden crear canales" on public.canales for insert with check (true); exception when duplicate_object then null; end $`$;
-
--- Lecturas detalladas (Read Receipts)
-create table if not exists public.mensaje_lecturas (
-  mensaje_id bigint references public.mensajes(id) on delete cascade not null,
-  user_id uuid references public.perfiles(id) on delete cascade not null,
-  read_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  primary key(mensaje_id, user_id)
-);
-
-alter table public.mensaje_lecturas enable row level security;
-do $$ begin create policy "Cualquiera puede ver confirmaciones" on public.mensaje_lecturas for select using (true); exception when duplicate_object then null; end $$;
-do $$ begin create policy "Usuarios pueden confirmar lectura" on public.mensaje_lecturas for insert with check (user_id = auth.uid()); exception when duplicate_object then null; end $$;
-
--- MANTENIMIENTO AVANZADO (FASE 3)
--- Añadir firma a historial
-alter table public.historial_mantenimiento add column if not exists firma_url text;
-
--- Nueva tabla para plantillas de checklist
-create table if not exists public.mantenimiento_plantillas (
-    id uuid default gen_random_uuid() primary key,
-    nombre text not null,
-    items jsonb default '[]'::jsonb,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
-alter table public.mantenimiento_plantillas enable row level security;
-
-do $$ begin
-    create policy "Usuarios autenticados pueden ver plantillas" on public.mantenimiento_plantillas
-        for select using (auth.role() = 'authenticated');
-    create policy "Admins y mantenimiento pueden gestionar plantillas" on public.mantenimiento_plantillas
-        for all using (
-            exists (select 1 from public.perfiles where id = auth.uid() and rol in ('admin', 'direccion', 'mantenimiento'))
-        );
-exception when others then null; end $$;
-
