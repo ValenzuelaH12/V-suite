@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Image as ImageIcon, Video, Paperclip, Check, CheckCheck, RefreshCw, Plus, Users, Search, MessageSquare, X, Trash2, Mic, Square } from 'lucide-react'
+import { Send, Image as ImageIcon, Video, Paperclip, Check, CheckCheck, RefreshCw, Plus, Users, Search, MessageSquare, X, Trash2, Mic, Square, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useNotifications } from '../context/NotificationContext'
@@ -470,9 +470,13 @@ export default function Chat() {
         {/* Área de Chat Activo */}
         <div className={`chat-main ${!showChatMobile ? 'mobile-hidden' : ''}`}>
           <div className="chat-header border-b">
-            <div className="active-chat-info">
-              <button className="btn-icon btn-ghost mobile-only mr-sm" onClick={() => setShowChatMobile(false)}>
-                <RefreshCw size={18} style={{ transform: 'rotate(-90deg)' }} />
+            <div className="flex items-center gap-xs">
+              <button 
+                className="btn-icon btn-ghost mobile-only-flex mr-xs" 
+                onClick={() => setShowChatMobile(false)}
+                title="Volver a la lista"
+              >
+                <ArrowLeft size={20} className="text-accent" />
               </button>
               <div className={`avatar ${
                 activeChannelInfo?.id === 'general' ? 'avatar-gradient' : 
