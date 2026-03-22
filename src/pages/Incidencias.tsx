@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, RefreshCw } from 'lucide-react'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
+import { notificationService } from '../services/notificationService'
 import { aiService, AIAnalysisResult } from '../services/aiService'
 import { IncidentKanban } from '../components/features/inspections/IncidentKanban'
 import { supabase } from '../lib/supabase'
@@ -108,6 +109,15 @@ export default function Incidencias() {
 
     try {
       await createIncident.mutateAsync(payload)
+      
+      // Notificar a administradores de la nueva incidencia
+      await notificationService.notifyAdmins(
+        `🚨 Nueva Incidencia: ${payload.title}`,
+        `Ubicación: ${payload.location}. Prioridad: ${payload.priority}`,
+        'incident',
+        `/incidencias`
+      )
+
       setIsModalOpen(false)
       setInitialIncidentData({})
       toast.success('Incidencia creada correctamente')
