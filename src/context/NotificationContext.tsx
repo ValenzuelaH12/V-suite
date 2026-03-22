@@ -44,6 +44,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       console.warn('⚠️ Permiso de notificación no concedido:', permission)
       return
     }
+    try {
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         const registration = await navigator.serviceWorker.ready
         if (registration) {
