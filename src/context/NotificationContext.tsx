@@ -11,6 +11,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [unreadPerChannel, setUnreadPerChannel] = useState<Record<string, number>>({})
   // ... rest of the file
   const [chatNotifications, setChatNotifications] = useState<any[]>([])
+  const [dbNotifications, setDbNotifications] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   )
@@ -152,10 +154,57 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         console.log('📡 Estado de suscripción global:', status)
       })
 
+    // 2. Suscripción a la tabla de NOTIFICACIONES persistentes (DB)
+    const dbNotifChannel = supabase
+      .channel('db_notifications')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notificaciones',
+        filter: `user_id=eq.${profile.id}`
+      }, (payload) => {
+        const newNotif = payload.new
+        setDbNotifications(prev => [newNotif, ...prev])
+        
+        // Disparar sonido y notificación nativa
+        sendNotification(newNotif.title, {
+          body: newNotif.message,
+          data: newNotif.link
+        })
+        toast.info(`${newNotif.title}: ${newNotif.message}`)
+      })
+      .subscribe()
+
+    // Cargar notificaciones iniciales
+    const fetchDbNotifications = async () => {
+      const { data } = await supabase
+        .from('notificaciones')
+        .select('*')
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      
+      if (data) setDbNotifications(data)
+      setLoading(false)
+    }
+    fetchDbNotifications()
+
     return () => {
       supabase.removeChannel(channel)
+      supabase.removeChannel(dbNotifChannel)
     }
   }, [profile, permission])
+
+  const markAsRead = async (id?: string) => {
+    if (!profile) return
+    if (id) {
+      await supabase.from('notificaciones').update({ read: true }).eq('id', id)
+      setDbNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    } else {
+      await supabase.from('notificaciones').update({ read: true }).eq('user_id', profile.id)
+      setDbNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    }
+  }
 
   const clearChannelUnread = (channelId: string) => {
     setUnreadPerChannel(prev => ({
@@ -207,10 +256,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     <NotificationContext.Provider value={{ 
       unreadPerChannel, 
       totalUnread, 
-      chatNotifications, 
-      clearChannelUnread,
-      dismissNotification,
-      sendNotification,
+      dbNotifications,
+      loading,
+      markAsRead,
       permission 
     }}>
       {children}

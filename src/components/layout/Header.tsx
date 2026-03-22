@@ -7,7 +7,7 @@ import { useNotifications } from '../../context/NotificationContext'
 import { MessageSquare } from 'lucide-react'
 import { HotelSelector } from './HotelSelector'
 import { NetworkStatus } from './NetworkStatus'
-import { NotificationDropdown } from './NotificationDropdown'
+import { NotificationCenter } from './NotificationCenter'
 import { GlobalSearch } from './GlobalSearch'
 
 export default function Header({ toggleSidebar }) {
@@ -183,13 +183,7 @@ export default function Header({ toggleSidebar }) {
 
         <HotelSelector />
         
-        <NotificationDropdown
-          notifications={notifications}
-          totalChatUnread={totalChatUnread}
-          showNotifications={showNotifications}
-          setShowNotifications={setShowNotifications}
-          onNotificationClick={handleNotificationClick}
-        />
+        <NotificationCenter />
       </div>
 
 
