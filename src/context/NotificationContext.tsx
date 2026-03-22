@@ -284,6 +284,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
       
       setPushSubscription(sub);
+
+      // Guardar en Supabase si hay sesión activa
+      if (sub && profile?.id) {
+        const { error } = await supabase
+          .from('push_subscriptions')
+          .upsert({
+            user_id: profile.id,
+            subscription: sub,
+            device_info: navigator.userAgent,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id, subscription' });
+
+        if (error) console.error('Error guardando suscripción en DB:', error);
+        else console.log('✅ Suscripción sincronizada con el servidor');
+      }
+
       console.log('✅ Suscripción Push activa:', sub);
       return sub;
     } catch (err) {
