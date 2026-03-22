@@ -28,13 +28,18 @@ export const notificationService = {
    */
   async notifyAdmins(title: string, message: string, type: string = 'incident', link: string = '') {
     try {
-      // 1. Obtener IDs de administradores
-      const { data: admins } = await supabase
+      // 1. Obtener IDs de administradores (flexibilidad en el nombre del rol)
+      const { data: admins, error: fetchError } = await supabase
         .from('perfiles')
-        .select('id')
-        .in('rol', ['admin', 'super_admin']);
+        .select('id, rol')
+        .or('rol.eq.admin,rol.eq.super_admin,rol.eq.super-admin');
 
-      if (!admins || admins.length === 0) return;
+      console.log('👥 Administradores encontrados para notificar:', admins, fetchError);
+
+      if (!admins || admins.length === 0) {
+        console.warn('⚠️ No se encontraron administradores para notificar');
+        return;
+      }
 
       // 2. Insertar notificaciones en bloque
       const notifications = admins.map(admin => ({

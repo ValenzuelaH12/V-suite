@@ -6,8 +6,20 @@ import { es } from 'date-fns/locale';
 
 export const NotificationCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { dbNotifications, markAsRead, totalUnread } = useNotifications();
+  const { dbNotifications, chatNotifications, markAsRead, totalUnread } = useNotifications();
   
+  // Combinar notificaciones de DB y locales (Chat/Temp)
+  const allNotifications = [
+    ...dbNotifications.map(n => ({ ...n, source: 'db', timestamp: new Date(n.created_at).getTime() })),
+    ...chatNotifications.map(n => ({ 
+      ...n, 
+      source: 'local', 
+      message: n.subtitle, 
+      created_at: new Date().toISOString(), // Fallback para ordenación
+      timestamp: Date.now() 
+    }))
+  ].sort((a, b) => b.timestamp - a.timestamp);
+
   const unreadCount = dbNotifications.filter(n => !n.read).length + totalUnread;
 
   const getIcon = (type: string) => {
@@ -49,27 +61,27 @@ export const NotificationCenter = () => {
           </div>
 
           <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-            {dbNotifications.length === 0 ? (
+            {allNotifications.length === 0 ? (
               <div className="p-8 text-center">
                 <Bell size={32} className="mx-auto text-muted/20 mb-2" />
                 <p className="text-xs text-muted font-bold uppercase tracking-widest">No hay notificaciones</p>
               </div>
             ) : (
-              dbNotifications.map((notif) => (
+              allNotifications.map((notif) => (
                 <div 
-                  key={notif.id}
+                  key={`${notif.source}-${notif.id}`}
                   onClick={() => {
-                    markAsRead(notif.id);
+                    if (notif.source === 'db') markAsRead(notif.id);
                     if (notif.link) window.location.href = notif.link;
                     setIsOpen(false);
                   }}
                   className={`p-4 border-b border-white/5 cursor-pointer transition-colors relative group
-                    ${!notif.read ? 'bg-accent/5' : 'hover:bg-white/5'}
+                    ${(notif.source === 'db' && !notif.read) || notif.source === 'local' ? 'bg-accent/5' : 'hover:bg-white/5'}
                   `}
                 >
                   <div className="flex gap-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 
-                      ${!notif.read ? 'bg-accent/20' : 'bg-white/5'}
+                      ${(notif.source === 'db' && !notif.read) || notif.source === 'local' ? 'bg-accent/20' : 'bg-white/5'}
                     `}>
                       {getIcon(notif.type)}
                     </div>
@@ -77,7 +89,7 @@ export const NotificationCenter = () => {
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold text-white truncate">{notif.title}</span>
                         <span className="text-[9px] text-muted font-bold whitespace-nowrap">
-                          {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: es })}
+                          {notif.created_at ? formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: es }) : 'ahora'}
                         </span>
                       </div>
                       <p className="text-[11px] text-muted line-clamp-2 leading-relaxed">
@@ -85,7 +97,7 @@ export const NotificationCenter = () => {
                       </p>
                     </div>
                   </div>
-                  {!notif.read && (
+                  {((notif.source === 'db' && !notif.read) || notif.source === 'local') && (
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_5px_var(--color-accent)]" />
                   )}
                 </div>

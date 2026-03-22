@@ -34,34 +34,39 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [permission])
 
   const sendNotification = async (title: string, options?: NotificationOptions) => {
-    // Sonido premium directo
-    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3')
-    audio.play().catch(e => console.warn('Audio play blocked:', e))
-
-    console.log('📢 Disparando sendNotification:', title, options)
-    
-    if (permission !== 'granted') {
-      console.warn('⚠️ Permiso de notificación no concedido:', permission)
-      return
+    // 1. Sonido premium (Usar el ref para mayor fiabilidad y evitar bloqueos)
+    if (notificationSound.current) {
+      notificationSound.current.currentTime = 0;
+      notificationSound.current.play().catch(e => console.warn('Audio play blocked or failed:', e));
     }
+
+    console.log('📢 Disparando sendNotification:', title, options);
+    
+    // 2. Notificación Nativa (PC / PWA)
+    if (permission !== 'granted') {
+      console.warn('⚠️ Permiso de notificación no concedido:', permission);
+      return;
+    }
+
     try {
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        const registration = await navigator.serviceWorker.ready
-        if (registration) {
-          // Opción A: Mostrar directamente desde el registro (PWA Style)
+      // Intentar vía Service Worker (Mejor para PWA/PC)
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        if (registration && registration.showNotification) {
           await registration.showNotification(title, {
             icon: '/pwa-192x192.png',
             badge: '/favicon.svg',
+            vibrate: [200, 100, 200],
             ...options
-          })
-          return
+          } as any);
+          return;
         }
       }
 
-      // Opción B: Fallback nativo
-      new Notification(title, options)
+      // Fallback: Notificación nativa directa
+      new Notification(title, options);
     } catch (err) {
-      console.warn('Error al disparar notificación:', err)
+      console.warn('Error al disparar notificación:', err);
     }
   }
 
@@ -112,7 +117,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (!inc) return
 
         if (inc.priority === 'high' || inc.title.includes('V-NEXUS')) {
-          sendNotification('🚨 ALERTA V-SUITE', {
+          sendNotification('[V-NEXUS] NUEVA SOLICITUD', {
             body: `${inc.title} en ${inc.location}`,
             tag: 'urgent-incident',
             requireInteraction: true,
@@ -120,7 +125,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           })
           
           // Toast visual interno
-          toast.info(`[V-NEXUS] ${inc.title} en ${inc.location}`)
+          toast.info(`[NEXUS] ${inc.title} en ${inc.location}`)
         }
       })
       .on('postgres_changes', {
