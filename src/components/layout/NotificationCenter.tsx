@@ -62,7 +62,10 @@ export const NotificationCenter = () => {
               )}
               {allNotifications.length > 0 && (
                 <button 
-                  onClick={() => clearAllNotifications()}
+                  onClick={() => {
+                    clearAllNotifications();
+                    setIsOpen(false);
+                  }}
                   className="text-[10px] font-black uppercase text-muted hover:text-danger transition-colors"
                   title="Limpiar todas"
                 >
