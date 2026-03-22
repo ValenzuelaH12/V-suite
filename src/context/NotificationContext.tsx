@@ -40,10 +40,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     if (permission !== 'granted') return
 
     try {
-      // Método preferido para PWA: Service Worker
-      if ('serviceWorker' in navigator) {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         const registration = await navigator.serviceWorker.ready
         if (registration) {
+          // Opción A: Mostrar directamente desde el registro (PWA Style)
           await registration.showNotification(title, {
             icon: '/pwa-192x192.png',
             badge: '/favicon.svg',
@@ -53,23 +53,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         }
       }
 
-      // Fallback: Constructor nativo (puede fallar en algunos móviles con "Illegal constructor")
-      const notif = new Notification(title, {
-        icon: '/pwa-192x192.png',
-        badge: '/favicon.svg',
-        ...options
-      })
-      
-      notif.onclick = () => {
-        window.focus()
-        if (options?.data) {
-          window.location.href = options.data
-        }
-        notif.close()
-      }
+      // Opción B: Fallback nativo
+      new Notification(title, options)
     } catch (err) {
-      console.warn('Error al disparar notificación nativa:', err)
-      // El Toast ya se dispara por separado, así que manejamos el fallo silenciosamente aquí
+      console.warn('Error al disparar notificación:', err)
     }
   }
 

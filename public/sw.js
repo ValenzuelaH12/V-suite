@@ -48,7 +48,7 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (let client of windowClients) {
-        if (client.url === urlToOpen && 'focus' in client) {
+        if ('focus' in client) {
           return client.focus();
         }
       }
