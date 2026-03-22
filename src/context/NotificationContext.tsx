@@ -275,11 +275,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (!sub) {
         // Clave VAPID Pública (Generada para el usuario)
         // NOTA: En producción, esta clave debe coincidir con la de tu servidor de envíos
-        const publicVapidKey = 'BDO-d8_yG0Hk0_Y3Ym5U-F9Pq2-5YpXUv9w3xY1zY0x1v_Y3Ym5U-F9Pq2-5YpXUv9w3xY1zY0x=';
+        const publicVapidKey = 'BL9KSv9l2_Zf9Of0xfdUQY9t5UiBX22Vc8cRDXV24hlK-dZOCJHf0t3al4oe8rDoFNp8kW3FccOqRKRjblw4I-k';
         
         sub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array('BDO-d8_yG0Hk0_Y3Ym5U-F9Pq2-5YpXUv9w3xY1zY0x1v_Y3Ym5U-F9Pq2-5YpXUv9w3xY1zY0x=')
+          applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
         });
       }
       
