@@ -1495,6 +1495,16 @@ input, textarea, select {
   .incidencias-toolbar {
     padding: var(--spacing-sm) !important;
   }
+
+  .main-content {
+    padding-left: var(--spacing-xs) !important;
+    padding-right: var(--spacing-xs) !important;
+  }
+
+  /* Prevent text from vertical breaking in flex items */
+  h3, h4, span {
+    min-width: 0;
+  }
 }
 
 /* Helper class for responsive tables */

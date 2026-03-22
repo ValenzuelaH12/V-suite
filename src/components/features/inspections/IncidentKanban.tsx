@@ -26,42 +26,39 @@ const DraggableIncident = ({ incident, onClick }) => {
     <div 
       ref={drag as any}
       onClick={() => onClick(incident)}
-      className={`glass-card p-4 mb-3 cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group
+      className={`glass-card p-3 mb-2 cursor-pointer transition-all hover:-translate-y-1 relative overflow-hidden group
         ${isDragging ? 'opacity-40 scale-95 border-accent' : 'hover:border-accent hover:shadow-[0_0_15px_rgba(var(--color-accent),0.2)]'}
       `}
       style={{
-        borderTopWidth: '4px',
+        borderTopWidth: '3px',
         borderTopColor: `var(--color-${incident.priority === 'urgent' ? 'danger' : incident.priority === 'high' ? 'danger' : incident.priority === 'medium' ? 'warning' : 'success'})`,
         borderTopStyle: 'solid'
       }}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
       
-      <div className="flex justify-between items-start mb-2 relative z-10">
-        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm bg-black/40
+      <div className="flex justify-between items-start mb-1 relative z-10">
+        <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-sm bg-black/40
           ${incident.priority === 'high' || incident.priority === 'urgent' ? 'text-danger border border-danger/20' : incident.priority === 'medium' ? 'text-warning border border-warning/20' : 'text-success border border-success/20'}
         `}>
           {incident.priority === 'high' ? 'Alta' : incident.priority === 'medium' ? 'Media' : 'Baja'}
         </span>
-        <span className="text-[10px] text-muted font-bold font-mono">#{String(incident.id).substring(0,6)}</span>
+        <span className="text-[9px] text-muted font-bold font-mono">#{String(incident.id).substring(0,4)}</span>
       </div>
       
-      <h4 className="font-bold text-sm mb-3 leading-tight text-white relative z-10">{incident.title}</h4>
+      <h4 className="font-bold text-xs mb-2 leading-tight text-white relative z-10 line-clamp-2">{incident.title}</h4>
       
-      <div className="flex flex-col gap-1.5 text-[10px] uppercase font-bold text-muted mb-3 relative z-10 tracking-widest">
-        <span className="flex items-center gap-2"><MapPin size={12} className="text-secondary"/> <span className="truncate">{incident.location}</span></span>
-        <span className="flex items-center gap-2"><Clock size={12} className="text-secondary"/> {incident.time}</span>
+      <div className="flex flex-row flex-wrap gap-x-3 gap-y-1 text-[9px] uppercase font-bold text-muted mb-2 relative z-10 tracking-wider">
+        <span className="flex items-center gap-1.5"><MapPin size={10} className="text-secondary"/> <span className="truncate max-w-[100px]">{incident.location}</span></span>
+        <span className="flex items-center gap-1.5"><Clock size={10} className="text-secondary"/> {incident.time}</span>
       </div>
 
-      <div className="flex justify-between items-center border-t border-white/10 pt-3 mt-1 relative z-10">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-[10px] font-black shadow-lg">
+      <div className="flex justify-between items-center border-t border-white/5 pt-2 mt-1 relative z-10">
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[9px] font-bold">
             {incident.reporter.charAt(0)}
           </div>
-          <div className="flex flex-col">
-            <span className="text-[9px] text-muted tracking-widest uppercase font-bold">Asignado a</span>
-            <span className="text-[10px] text-primary font-bold truncate max-w-[80px]">{incident.assignee_name}</span>
-          </div>
+          <span className="text-[9px] text-primary font-bold truncate max-w-[100px]">{incident.assignee_name}</span>
         </div>
       </div>
     </div>
@@ -113,9 +110,9 @@ const DroppableColumn = ({ column, incidents, onDrop, onClickIncident }) => {
 export const IncidentKanban = ({ incidents, onUpdateStatus, onClickIncident }) => {
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar h-[calc(100vh-280px)] min-h-[500px] snap-x">
+      <div className="flex gap-4 overflow-x-auto pb-6 custom-scrollbar h-[calc(100vh-320px)] min-h-[400px] snap-x px-2">
         {STATUS_COLUMNS.map(col => (
-          <div key={col.id} className="snap-center h-full">
+          <div key={col.id} className="snap-center h-full flex-shrink-0 w-[280px] sm:w-[320px]">
             <DroppableColumn 
               column={col}
               incidents={incidents.filter(i => i.status === col.id)}
