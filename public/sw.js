@@ -9,9 +9,23 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
 
-// Manejar notificaciones push (si se integran con un servidor de Push)
+// Manejar mensajes del hilo principal (para notificaciones locales desde el contexto)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    const { title, options } = event.data;
+    event.waitUntil(self.registration.showNotification(title, options));
+  }
+});
+
+// Manejar notificaciones push
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {};
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { title: 'Alerta V-Suite', body: event.data.text() };
+  }
+
   const title = data.title || 'Alerta V-Suite';
   const options = {
     body: data.body || 'Nueva actualización disponible.',
@@ -19,7 +33,8 @@ self.addEventListener('push', (event) => {
     badge: '/favicon.svg',
     data: data.url || '/',
     tag: data.tag || 'vsuite-notification',
-    requireInteraction: data.urgent || false
+    vibrate: [200, 100, 200],
+    requireInteraction: true
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -28,17 +43,15 @@ self.addEventListener('push', (event) => {
 // Manejar el clic en la notificación
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const urlToOpen = event.notification.data || '/';
+  const urlToOpen = new URL(event.notification.data || '/', self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Si ya hay una pestaña abierta, enfocarla y navegar
       for (let client of windowClients) {
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
-      // Si no hay pestaña abierta, abrir una nueva
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
